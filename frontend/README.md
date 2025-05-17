@@ -45,6 +45,25 @@ frontend/
 
 ## 🛠️ Setup & Installation
 
+### System Requirements
+
+Before setting up the frontend, ensure you have the following installed:
+
+- **Node.js**: Version 16.x or higher
+  - [Download Node.js](https://nodejs.org/)
+  - Verify installation: `node --version`
+  - npm (comes bundled with Node.js) or yarn: `npm --version` / `yarn --version`
+
+- **Git**: Required for version control
+  - [Download Git](https://git-scm.com/downloads)
+  - Verify installation: `git --version`
+
+- **Modern Web Browser**:
+  - Chrome, Firefox, Edge, or Safari (latest versions recommended)
+  - For development, Chrome DevTools or Firefox Developer Edition are recommended
+
+### Installation Steps
+
 1. Install dependencies:
    ```sh
    npm install
