@@ -228,8 +228,10 @@ def get_gpt_extraction(image_path: str, doc_type: str, fields: List[str]) -> Dic
 
         # Create a focused, direct prompt for GPT
         fields_str = ', '.join(fields)
+        # Enhanced prompt for document_number extraction
         prompt = (
             f"Extract the following fields from this document image and return them as a JSON object with exactly these keys: {fields_str}. "
+            'For the field "document_number", extract the value labeled as "Passport Number", "Document Number", "Document No.", "Passport No.", or similar, and return it as "document_number" in the JSON. '
             'If a field is missing or unreadable, use "NOT_FOUND". Do not include any explanation or extra text.'
         )
         # --- LOGGING ---
@@ -293,6 +295,21 @@ def get_gpt_extraction(image_path: str, doc_type: str, fields: List[str]) -> Dic
             if extracted_fields:
                 return extracted_fields
             return {field: "NOT_FOUND" for field in fields}
+        
+        # Map aliases to document_number if present
+        doc_number_aliases = [
+            "document_number", "passport_number", "passport no", "document no", "passportno", "documentno", "id_number", "id no", "idno"
+        ]
+        doc_number = None
+        for alias in doc_number_aliases:
+            value = extracted_fields.get(alias)
+            if value and value != "NOT_FOUND":
+                doc_number = value
+                break
+        if doc_number:
+            extracted_fields["document_number"] = doc_number
+        else:
+            extracted_fields["document_number"] = "NOT_FOUND"
         
         return extracted_fields
 

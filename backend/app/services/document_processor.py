@@ -2,11 +2,13 @@ import io
 import tempfile
 import os
 import logging
+import re
 from typing import Dict, Tuple, List, Optional
 from PIL import Image
 from pdf2image import convert_from_bytes
 from ..utils.ai import get_gpt_classification, get_gpt_extraction
 from ..preprocess_image import preprocess_image
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,21 @@ class DocumentProcessor:
                 ]
             }
         }
+
+    @staticmethod
+    def normalize_date(date_str):
+        # Try to match formats like 15JAN1985, 01FEB2020, etc.
+        match = re.match(r'^(\d{2})([A-Z]{3})(\d{4})$', date_str)
+        if match:
+            day, month_abbr, year = match.groups()
+            try:
+                # Convert month abbreviation to title case for strptime
+                date_obj = datetime.strptime(f'{day} {month_abbr.title()} {year}', '%d %b %Y')
+                return date_obj.strftime('%d %b %Y')
+            except Exception:
+                pass
+        # If already in a good format or can't parse, return as is
+        return date_str
 
     def _convert_pdf_to_image(self, pdf_bytes: bytes) -> Tuple[bytes, Optional[str]]:
         """Convert first page of PDF to image bytes"""
@@ -130,7 +147,8 @@ class DocumentProcessor:
                 "expiration_date",
                 "address",
                 "sex",
-                "document_number"
+                "document_number",
+                "nationality"
             ]
 
             # Extract fields using GPT-4 Vision
@@ -153,13 +171,17 @@ class DocumentProcessor:
             # Format extracted fields for database
             formatted_fields = []
             critical_fields_missing = False
-            
+            date_fields = [
+                "date_of_birth", "expiration_date", "issue_date", "date_of_issue", "date_of_expiry", "valid_from", "expires"
+            ]
             for field_name, field_value in extracted_data.items():
                 # Check if critical fields are missing
                 if field_name in ["first_name", "last_name", "date_of_birth", "document_number"]:
                     if field_value == "NOT_FOUND":
                         critical_fields_missing = True
-                        
+                # Only normalize date fields, never document_number or its aliases
+                if field_name in date_fields and field_value not in ("NOT_FOUND", None, ""):
+                    field_value = self.normalize_date(field_value)
                 formatted_fields.append({
                     "field_name": field_name,
                     "field_value": field_value if field_value else "NOT_FOUND"
