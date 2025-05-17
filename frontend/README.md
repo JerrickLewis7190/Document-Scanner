@@ -1,5 +1,7 @@
 # 🖥️ Document Scanner Frontend
 
+[🖥️ Frontend Design](./Frontend%20Design.md)
+
 A React + TypeScript application for scanning, viewing, and editing extracted information from immigration documents.
 
 ## 🚀 Features
@@ -17,31 +19,6 @@ A React + TypeScript application for scanning, viewing, and editing extracted in
 - **Material UI**: Component library for clean, modern UI
 - **Axios**: HTTP client for API communication
 - **React Dropzone**: File upload functionality
-
-## 📂 Project Structure
-
-```
-frontend/
-├── public/                # Static assets
-├── src/
-│   ├── components/        # React components
-│   │   ├── DocumentCard/  # Document history card
-│   │   ├── DocumentList/  # Document history list
-│   │   ├── DocumentView/  # Document viewer component
-│   │   ├── FieldEditor/   # Field editing interface
-│   │   ├── Header/        # Application header
-│   │   └── UploadForm/    # Document upload form
-│   ├── services/          # API services
-│   │   └── api.ts         # API client
-│   ├── types/             # TypeScript type definitions
-│   │   └── index.ts       # Shared type definitions
-│   ├── utils/             # Utility functions
-│   │   └── logger.ts      # Logging utility
-│   ├── App.tsx            # Main application component
-│   └── index.tsx          # Application entry point
-├── package.json           # Project dependencies
-└── tsconfig.json          # TypeScript configuration
-```
 
 ## 🛠️ Setup & Installation
 
@@ -81,6 +58,18 @@ Before setting up the frontend, ensure you have the following installed:
    ```
 
 4. Access the application at http://localhost:3000
+
+## 🧪 Testing
+
+Run the test suite:
+```sh
+npm test
+```
+
+Run tests with coverage:
+```sh
+npm test -- --coverage
+```
 
 ## 📊 Application Flow
 
@@ -126,18 +115,6 @@ The frontend communicates with the backend via the API service defined in `src/s
 - `GET /api/documents` - Fetch document history
 - `PATCH /api/documents/{id}` - Update extracted fields
 
-## 🧪 Testing
-
-Run the test suite:
-```sh
-npm test
-```
-
-Run tests with coverage:
-```sh
-npm test -- --coverage
-```
-
 ## 🏗️ Building for Production
 
 Build the application for production:
@@ -149,25 +126,4 @@ The build artifacts will be stored in the `build/` directory.
 
 ## 🔍 Debugging
 
-The application includes a logging utility in `src/utils/logger.ts` that can be used for debugging:
-
-```typescript
-import { logger } from '../utils/logger';
-
-// Log at different levels
-logger.info('Information message');
-logger.warn('Warning message');
-logger.error('Error message', error);
-```
-
-## 🎨 Customization
-
-### Theme Customization
-The Material UI theme can be customized in `src/theme.ts`.
-
-### Adding New Field Types
-To add support for new field types:
-
-1. Update the `Field` type in `src/types/index.ts`
-2. Add validation rules in `src/utils/validation.ts`
-3. Update the field display component in `src/components/FieldEditor`
+The application includes a logging utility in `

@@ -39,8 +39,12 @@ const api = {
         created_at: new Date().toISOString(),
         fields: convertContentToFields(response.data.document_content)
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to upload document:', error);
+      // Extract the detailed error message from the API response if available
+      if (error.response && error.response.data && error.response.data.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   },
@@ -86,15 +90,6 @@ const api = {
       await axios.delete(`${API_BASE_URL}/api/documents/${documentId}`);
     } catch (error) {
       logger.error('Failed to delete document:', error);
-      throw error;
-    }
-  },
-
-  async deleteAllDocuments(): Promise<void> {
-    try {
-      await axios.delete(`${API_BASE_URL}/api/documents`);
-    } catch (error) {
-      logger.error('Failed to delete all documents:', error);
       throw error;
     }
   },

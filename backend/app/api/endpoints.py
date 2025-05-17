@@ -157,18 +157,6 @@ def delete_document(
     logger.info(f"Document {document_id} deleted successfully")
     return {"status": "success"}
 
-@router.delete("/documents")
-def delete_all_documents(
-    db: Session = Depends(get_db)
-):
-    """Delete all documents"""
-    logger.info("Deleting all documents")
-    count = db.query(DocumentModel).count()
-    db.query(DocumentModel).delete()
-    db.commit()
-    logger.info(f"Successfully deleted {count} documents")
-    return {"status": "success"}
-
 @router.patch("/documents/{document_id}", response_model=DocumentResponse)
 def update_document_fields(
     document_id: int,

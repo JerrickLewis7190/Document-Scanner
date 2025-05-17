@@ -47,10 +47,13 @@ function App() {
       logger.info(`Document uploaded successfully, ID: ${document.id}`);
       setDocuments(prev => [document, ...prev]);
       setSelectedDocument(document);
-    } catch (err) {
-      const errorMessage = 'Failed to process document';
+    } catch (err: any) {
+      // Extract more detailed error message if available
+      const errorMessage = err.message || 'Failed to process document';
       logger.error(errorMessage, err);
       setError(errorMessage);
+      // Show upload form again if there was an error
+      setShowUploadForm(true);
     } finally {
       setLoading(false);
     }
@@ -112,21 +115,6 @@ function App() {
     }
   };
 
-  const handleDeleteAll = async () => {
-    logger.info('Deleting all documents');
-    try {
-      await api.deleteAllDocuments();
-      logger.info('All documents deleted successfully');
-      setDocuments([]);
-      setSelectedDocument(null);
-      setCurrentFile(undefined);
-    } catch (err) {
-      const errorMessage = 'Failed to delete all documents';
-      logger.error(errorMessage, err);
-      setError(errorMessage);
-    }
-  };
-
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AppBar position="static">
@@ -155,7 +143,6 @@ function App() {
               documents={documents}
               onDocumentSelect={handleDocumentSelect}
               onDocumentDelete={handleDocumentDelete}
-              onDeleteAll={handleDeleteAll}
               selectedDocumentId={selectedDocument?.id}
             />
           </Box>

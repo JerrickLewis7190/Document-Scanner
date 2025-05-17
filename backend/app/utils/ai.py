@@ -35,6 +35,11 @@ def check_image_quality(image_path: str) -> Tuple[bool, Optional[str]]:
     """
     try:
         with Image.open(image_path) as img:
+            # Check image resolution
+            width, height = img.size
+            if width < 500 or height < 300:
+                return False, f"Image resolution too low ({width}x{height}). Minimum required is 500x300 for accurate processing."
+                
             # Check if image is empty or solid color
             if img.mode == 'RGB':
                 # Convert to grayscale for histogram analysis
@@ -44,7 +49,6 @@ def check_image_quality(image_path: str) -> Tuple[bool, Optional[str]]:
             hist = img.histogram()
             
             # Check if image is mostly empty (>90% white or black)
-            width, height = img.size
             total_pixels = width * height
             white_threshold = int(total_pixels * 0.9)
             black_threshold = int(total_pixels * 0.9)

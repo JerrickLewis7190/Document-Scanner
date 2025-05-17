@@ -17,7 +17,6 @@ interface HistorySidebarProps {
   documents: Document[];
   onDocumentSelect: (document: Document) => void;
   onDocumentDelete: (documentId: number) => void;
-  onDeleteAll: () => void;
   selectedDocumentId?: number;
 }
 

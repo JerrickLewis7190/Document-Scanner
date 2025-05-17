@@ -1,5 +1,7 @@
 # 🚀 Document Scanner Backend
 
+[📄 Backend Design](./Backend%20Design.md)
+
 The backend component of the Document Scanner application, built with FastAPI and Python to provide API endpoints for document processing, classification, and information extraction.
 
 ## 📋 Features
@@ -16,89 +18,65 @@ The backend component of the Document Scanner application, built with FastAPI an
 - **FastAPI**: Modern, high-performance web framework
 - **SQLAlchemy**: ORM for database interactions
 - **Pydantic**: Data validation and settings management
-- **OpenAI**: AI-powered document analysis and field extraction
-- **PDF2Image/PyMuPDF**: PDF handling and conversion
+- **OpenAI**: AI-powered document classification and field extraction
 - **Pillow**: Image processing
-- **SQLite**: Lightweight database
+- **Pikepdf**: PDF parsing and conversion (without external dependencies)
+- **PyMuPDF (fitz)**: Fallback PDF processing when needed
 
-## 🗂️ Directory Structure
+## 🔨 Prerequisites
 
-```
-backend/
-├── app/                     # Main application code
-│   ├── api/                 # API endpoint definitions
-│   │   └── endpoints.py     # Route handlers
-│   ├── models/              # Database models
-│   │   └── db_models.py     # SQLAlchemy models
-│   ├── services/            # Business logic
-│   │   └── document_processor.py  # Document processing service
-│   └── utils/               # Helper utilities
-│       ├── ai.py            # AI integration
-│       └── field_mapping.py # Field standardization
-├── logs/                    # Application logs
-├── uploads/                 # Uploaded document storage
-├── sample_documents/        # Sample documents for testing
-├── tests/                   # Unit and integration tests
-├── main.py                  # Application entry point
-└── requirements.txt         # Project dependencies
-```
+- **Python 3.8+**: Required for the application
+- **Git**: For version control
+- **pip**: For package management
 
-## 🛠️ Setup & Installation
+## 🚀 Setup and Running
 
-### System Requirements
-
-Before setting up the backend, ensure you have the following installed:
-
-- **Python**: Version 3.8 or higher
-  - [Download Python](https://www.python.org/downloads/)
-  - Verify installation: `python --version`
-
-- **Poppler**: Required for PDF processing
-  - Windows: Install via [poppler for Windows](https://github.com/oschwartz10612/poppler-windows)
-  - macOS: `brew install poppler`
-  - Linux: `sudo apt-get install poppler-utils`
-  - Add to PATH environment variable
-
-- **Tesseract OCR** (if using OCR features)
-  - Windows: Can be installed via [Windows installer](https://github.com/UB-Mannheim/tesseract/wiki)
-  - macOS: `brew install tesseract`
-  - Linux: `sudo apt install tesseract-ocr`
-  - Add to PATH environment variable
-
-- **OpenAI API Key**
-  - Create an account at [OpenAI](https://openai.com/)
-  - Generate API key from the OpenAI dashboard
-
-### Installation Steps
-
-1. Create and activate a virtual environment:
-   ```sh
-   python -m venv .venv
-   
-   # On Windows
-   .venv\Scripts\activate
-   
-   # On macOS/Linux
-   source .venv/bin/activate
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/yourusername/document-scanner.git
+   cd document-scanner/backend
    ```
 
-2. Install dependencies:
-   ```sh
+2. **Set Up Virtual Environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+   ```
+
+3. **Install Dependencies**
+   ```bash
    pip install -r requirements.txt
    ```
 
-3. Set up environment variables:
-   Create a `.env` file with the following variables:
+4. **Configure Environment Variables**
+   
+   Create a `.env` file in the backend directory with:
    ```
-   OPENAI_API_KEY=your_api_key_here
-   ```
-
-4. Run the application:
-   ```sh
-   python main.py
+   OPENAI_API_KEY=your_openai_api_key
+   DATABASE_URL=sqlite:///./document_scanner.db
+   UPLOAD_FOLDER=./uploads
    ```
 
-5. Access the API at http://localhost:8000 and the API docs at http://localhost:8000/docs
+5. **Run the Application**
+   ```bash
+   uvicorn main:app --reload
+   ```
+   
+   The API will be available at: http://localhost:8000
+
+6. **Access API Documentation**
+   
+   FastAPI automatically generates documentation at:
+   - http://localhost:8000/docs (Swagger UI)
+   - http://localhost:8000/redoc (ReDoc)
+
+## 🧪 Testing
+
+Run tests with pytest:
+
+```bash
+pytest
+```
 
 ## 📚 API Documentation
 
@@ -156,18 +134,6 @@ Before setting up the backend, ensure you have the following installed:
 ### Health Check
 - **Endpoint**: `GET /health`
 - **Response**: API health status
-
-## 🧪 Testing
-
-Run the automated test suite:
-```sh
-pytest
-```
-
-Run specific tests:
-```sh
-pytest tests/test_endpoints.py
-```
 
 ## 🔍 Debugging
 

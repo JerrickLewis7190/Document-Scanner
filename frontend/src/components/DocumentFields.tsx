@@ -6,10 +6,11 @@ import {
   Paper,
   Grid,
   Button,
-  TextField
+  TextField,
+  Chip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { Document, Field } from '../types';
+import { Document, Field, isRequiredField } from '../types';
 import { logger } from '../utils/logger';
 
 interface DocumentFieldsProps {
@@ -43,7 +44,8 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
       // For driver's license, show these fields in this specific order
       return ['license_number', 'date_of_birth', 'issue_date', 'expiration_date', 'first_name', 'last_name'];
     } else if (docType.includes('ead') || docType.includes('card')) {
-      return ['card_number', 'category', 'first_name', 'last_name', 'card_expires_date'];
+      // For EAD cards, only show the 5 specified fields
+      return ['card_number', 'category', 'card_expires_date', 'first_name', 'last_name'];
     }
     // Default - show all fields
     return Object.keys(document.document_content).filter(k => k !== 'document_type');
@@ -98,13 +100,15 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
   };
 
   // Function to render a field
-  const renderField = (key: string) => {
-    const value = document.document_content[key];
+  const renderField = (fieldKey: string) => {
+    const value = document.document_content[fieldKey];
     const isMissing = !value || value === 'NOT_FOUND';
-    const fieldValue = value?.toString() || '';
+    const currentFieldValue = value?.toString() || '';
+    const isRequired = isRequiredField(fieldKey, documentType);
+    const needsAttention = isRequired && isMissing;
     
     return (
-      <Grid item xs={12} key={key}>
+      <Grid item xs={12} key={fieldKey}>
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -116,39 +120,34 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
           p: 1,
           borderRadius: 1
         }}>
-          <Typography sx={{ fontWeight: 'medium', minWidth: 140, flexShrink: 0 }}>
-            {key.split('_').map(word => 
-              word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' ')}
-          </Typography>
-          {editingField === key ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 140, flexShrink: 0 }}>
+            <Typography sx={{ fontWeight: 'medium' }}>
+              {fieldKey.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+              ).join(' ')}
+            </Typography>
+            {isRequired && (
+              <Chip
+                label="Required"
+                size="small"
+                color={needsAttention ? "error" : "primary"}
+                variant="outlined"
+                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+              />
+            )}
+          </Box>
+          {editingField === fieldKey ? (
             <>
               <TextField
                 value={fieldValue}
                 onChange={e => setFieldValue(e.target.value)}
                 size="small"
-                error={isMissing}
-                helperText={isMissing ? "This field is required" : ""}
+                error={isRequired && !fieldValue}
+                helperText={isRequired && !fieldValue ? "This field is required" : ""}
                 sx={{ flexGrow: 1, minWidth: 250, maxWidth: 350 }}
               />
-              <Button 
-                onClick={() => handleSave(key)} 
-                size="small" 
-                variant="contained" 
-                disabled={loading} 
-                sx={{ ml: 1, whiteSpace: 'nowrap' }}
-              >
-                Save
-              </Button>
-              <Button 
-                onClick={handleCancel} 
-                size="small" 
-                variant="outlined" 
-                disabled={loading} 
-                sx={{ ml: 1, whiteSpace: 'nowrap' }}
-              >
-                Cancel
-              </Button>
+              <Button onClick={() => handleSave(fieldKey)} size="small" variant="contained" disabled={loading} sx={{ ml: 1, whiteSpace: 'nowrap' }}>Save</Button>
+              <Button onClick={handleCancel} size="small" variant="outlined" disabled={loading} sx={{ ml: 1, whiteSpace: 'nowrap' }}>Cancel</Button>
             </>
           ) : (
             <>
@@ -159,13 +158,13 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
                   fontWeight: isMissing ? 'bold' : 'normal'
                 }}
               >
-                {fieldValue ? fieldValue : 'NOT FOUND'}
+                {currentFieldValue ? currentFieldValue : 'NOT FOUND'}
               </Typography>
               <Button 
-                onClick={() => handleEditClick(key, fieldValue)} 
+                onClick={() => handleEditClick(fieldKey, currentFieldValue)} 
                 size="small" 
                 variant="outlined" 
-                color={isMissing ? "error" : "primary"}
+                color={needsAttention ? "error" : "primary"}
               >
                 EDIT
               </Button>
@@ -178,6 +177,11 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
 
   // Get the list of fields to display based on document type
   const visibleFields = getVisibleFields(documentType);
+  
+  // Filter out any fields that don't exist in document_content
+  const availableFields = visibleFields.filter(field => 
+    field in document.document_content
+  );
 
   return (
     <Paper elevation={3} sx={{ p: 2 }}>
@@ -222,7 +226,7 @@ const DocumentFields: React.FC<DocumentFieldsProps> = ({ document, onFieldsUpdat
         </Grid>
 
         {/* Display only the specified fields for the current document type */}
-        {visibleFields.map(key => renderField(key))}
+        {availableFields.map(key => renderField(key))}
       </Grid>
     </Paper>
   );

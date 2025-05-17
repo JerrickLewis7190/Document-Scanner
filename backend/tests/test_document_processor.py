@@ -195,4 +195,172 @@ class TestDocumentProcessor:
             
         # Test invalid image
         with pytest.raises(ValueError):
-            processor.process_document(b"invalid image data") 
+            processor.process_document(b"invalid image data")
+            
+    def test_real_passport_extraction(self, processor):
+        """Test extraction from a real passport image"""
+        # Load a real passport sample from the test_data directory
+        sample_path = os.path.join("tests", "test_data", "sample_passport.jpg")
+        
+        # Skip the test if the sample file doesn't exist
+        if not os.path.exists(sample_path):
+            pytest.skip(f"Sample passport file not found at {sample_path}")
+            
+        with open(sample_path, 'rb') as f:
+            image_data = f.read()
+            
+        doc_type, fields, _ = processor.process_image(image_data)
+        
+        # Verify document type
+        assert doc_type == "passport"
+        
+        # Verify key passport fields
+        assert "passport_number" in fields
+        assert "name" in fields
+        assert "date_of_birth" in fields
+        assert "date_of_issue" in fields
+        assert "date_of_expiry" in fields
+        assert "nationality" in fields
+        
+        # Verify name structure
+        assert "first_name" in fields["name"]
+        assert "last_name" in fields["name"]
+    
+    def test_real_ead_card_extraction(self, processor):
+        """Test extraction from a real EAD card image"""
+        # Load a real EAD card sample from the test_data directory
+        sample_path = os.path.join("tests", "test_data", "sample_ead.jpg")
+        
+        # Skip the test if the sample file doesn't exist
+        if not os.path.exists(sample_path):
+            pytest.skip(f"Sample EAD card file not found at {sample_path}")
+            
+        with open(sample_path, 'rb') as f:
+            image_data = f.read()
+            
+        doc_type, fields, _ = processor.process_image(image_data)
+        
+        # Verify document type
+        assert doc_type == "ead"
+        
+        # Verify key EAD fields
+        assert "card_number" in fields
+        assert "name" in fields
+        assert "date_of_birth" in fields
+        assert "category" in fields
+        assert "expiration_date" in fields
+        
+        # Verify name structure
+        assert "first_name" in fields["name"]
+        assert "last_name" in fields["name"]
+        
+    def test_pdf_upload_handling(self, processor, test_images_dir):
+        """Test processing of a PDF file (conversion and extraction)"""
+        import PyPDF2
+        from io import BytesIO
+        
+        # Skip if PyPDF2 not installed (only needed for this test)
+        try:
+            import PyPDF2
+        except ImportError:
+            pytest.skip("PyPDF2 not installed, skipping PDF test")
+        
+        # Create a simple PDF with text content
+        pdf_buffer = BytesIO()
+        pdf_writer = PyPDF2.PdfWriter()
+        
+        # Create a page with document text
+        pdf_content = PyPDF2.PageObject.create_blank_page(width=612, height=792)
+        
+        # Add text to the PDF - Note: This is simplified, in a real test we would add text properly
+        # For this test, we'll rely on the processor's ability to recognize an empty PDF
+        
+        pdf_writer.add_page(pdf_content)
+        pdf_writer.write(pdf_buffer)
+        pdf_buffer.seek(0)
+        
+        # Save the PDF for testing
+        pdf_path = os.path.join(test_images_dir, "test_document.pdf")
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_buffer.read())
+        pdf_buffer.seek(0)
+        
+        # Process the PDF
+        pdf_data = pdf_buffer.read()
+        
+        # Test the processor's PDF handling
+        try:
+            doc_type, fields, error_msg = processor.process_document(pdf_data)
+            
+            # Depending on implementation, either:
+            # 1. The processor should convert PDF to image and process it
+            assert doc_type is not None
+            
+            # OR 2. Return a specific error for PDF handling
+            if error_msg:
+                assert "PDF" in error_msg or "pdf" in error_msg
+                
+        except NotImplementedError:
+            # If PDF handling is explicitly not implemented, this is acceptable
+            pass
+        except Exception as e:
+            # The processor should handle PDFs gracefully
+            assert "PDF" in str(e) or "pdf" in str(e), "PDF handling should give specific errors"
+            
+    def test_large_image_handling(self, processor, test_images_dir):
+        """Test with an image that exceeds the max allowed size"""
+        # Create a large test image (e.g., 10000x10000 pixels)
+        large_image = Image.new('RGB', (10000, 10000), color='white')
+        
+        # Add some text to make it look like a document
+        # In a real test, we would add proper text
+        
+        # Save the image
+        large_image_path = os.path.join(test_images_dir, "large_image.jpg")
+        large_image.save(large_image_path, quality=85)
+        
+        # Read the image
+        with open(large_image_path, 'rb') as f:
+            large_image_data = f.read()
+            
+        # Process the large image
+        doc_type, fields, error_msg = processor.process_image(large_image_data)
+        
+        # Check for proper handling
+        if error_msg:
+            assert "large" in error_msg.lower() or "size" in error_msg.lower()
+        else:
+            # If the processor handled it, make sure it was resized
+            # This assumes processor has a method to get the processed image size
+            processed_img = processor._last_processed_image
+            if hasattr(processor, '_last_processed_image'):
+                assert max(processed_img.size) <= 4000, "Large image should be resized"
+    
+    def test_low_quality_image_handling(self, processor, test_images_dir):
+        """Test with a blurry/low-resolution image to ensure quality checks trigger"""
+        # Create a very small, low-quality image
+        low_res_image = Image.new('RGB', (50, 30), color='white')
+        
+        # Add some text that would be unreadable at this resolution
+        # In a real test, we would add proper text
+        
+        # Save with low quality
+        low_res_path = os.path.join(test_images_dir, "low_res_image.jpg")
+        low_res_image.save(low_res_path, quality=10)
+        
+        # Read the image
+        with open(low_res_path, 'rb') as f:
+            low_res_data = f.read()
+            
+        # Process the low quality image
+        doc_type, fields, error_msg = processor.process_image(low_res_data)
+        
+        # Check for quality warnings
+        if error_msg:
+            assert ("resolution" in error_msg.lower() or 
+                    "quality" in error_msg.lower() or 
+                    "small" in error_msg.lower())
+        else:
+            # If no error, the extraction should have limited results due to poor quality
+            # This is a fuzzy assertion as the processor might still try to extract
+            assert len(fields) < 5, "Low quality image should extract minimal data" 

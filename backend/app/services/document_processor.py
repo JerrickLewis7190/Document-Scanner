@@ -5,8 +5,8 @@ import logging
 import re
 from typing import Dict, Tuple, List, Optional
 from PIL import Image
-from pdf2image import convert_from_bytes
-from ..utils.ai import get_gpt_classification, get_gpt_extraction
+from ..utils.pdf_processor import convert_pdf_bytes_to_image
+from ..utils.ai import get_gpt_classification, get_gpt_extraction, check_image_quality
 from ..utils.field_mapping import standardize_field_names, validate_required_fields, get_essential_fields, REQUIRED_FIELDS
 from ..preprocess_image import preprocess_image
 from datetime import datetime
@@ -57,12 +57,8 @@ class DocumentProcessor:
                     'card_number',
                     'first_name',
                     'last_name',
-                    'date_of_birth',
                     'category',
-                    'valid_from',
-                    'expires',
                     'card_expires_date',
-                    'alien_number',
                     'document_type'
                 ]
             }
@@ -84,35 +80,13 @@ class DocumentProcessor:
         return date_str
 
     def _convert_pdf_to_image(self, pdf_bytes: bytes) -> Tuple[bytes, Optional[str]]:
-        """Convert first page of PDF to image bytes"""
+        """Convert first page of PDF to image bytes using pikepdf"""
         try:
-            logger.debug("Converting PDF to image...")
-            try:
-                # Use higher DPI for better quality
-                images = convert_from_bytes(
-                    pdf_bytes,
-                    dpi=300,
-                    fmt='PNG',
-                    grayscale=False,
-                    size=(2000, None)  # Set width to 2000px, maintain aspect ratio
-                )
-                if images:
-                    logger.debug(f"Successfully converted PDF to {len(images)} images")
-                    # Convert PIL Image to bytes
-                    img_byte_arr = io.BytesIO()
-                    images[0].save(img_byte_arr, format='PNG')
-                    return img_byte_arr.getvalue(), None
-                else:
-                    error_msg = "PDF conversion produced no images"
-                    logger.error(error_msg)
-                    return None, error_msg
-            except Exception as pdf_error:
-                error_msg = f"Failed to convert PDF: {str(pdf_error)}"
-                logger.error(error_msg)
-                return None, error_msg
+            logger.debug("Converting PDF to image with pikepdf...")
+            return convert_pdf_bytes_to_image(pdf_bytes)
         except Exception as e:
-            error_msg = "The PDF file appears to be malformed or corrupted."
-            logger.error(f"Error converting PDF to image: {str(e)}")
+            error_msg = f"Error converting PDF to image: {str(e)}"
+            logger.error(error_msg)
             return None, error_msg
 
     def process_image(self, file_contents: bytes) -> Tuple[str, List[Dict[str, str]], Optional[str]]:
@@ -123,18 +97,34 @@ class DocumentProcessor:
         temp_file_path = None
         preprocessed_path = None
         try:
+            # Check if file is a PDF and convert if needed
+            is_pdf = self._is_pdf(file_contents)
+            if is_pdf:
+                logger.debug("Detected PDF file, converting to image")
+                file_contents, error = self._convert_pdf_to_image(file_contents)
+                if error:
+                    logger.error(f"Failed to convert PDF: {error}")
+                    return "unknown", [], f"Failed to convert PDF: {error}"
+                if not file_contents:
+                    logger.error("PDF conversion returned empty result")
+                    return "unknown", [], "PDF conversion failed"
+
             # Save bytes to temporary file for GPT Vision
             with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
                 temp_file.write(file_contents)
                 temp_file_path = temp_file.name
 
-            # Preprocess the image (skip if PDF)
-            # Check if the file is a PDF by magic number
-            is_pdf = file_contents.startswith(b'%PDF')
+            # Preprocess the image (only needed for non-PDF original images)
             image_path_to_use = temp_file_path
             if not is_pdf:
                 preprocessed_path = preprocess_image(temp_file_path)
                 image_path_to_use = preprocessed_path
+
+            # Check image quality before processing
+            is_valid, quality_error = check_image_quality(image_path_to_use)
+            if not is_valid:
+                logger.error(f"Image quality check failed: {quality_error}")
+                return "unknown", [], quality_error
 
             # Define base fields to extract for initial document type detection
             common_fields = [
