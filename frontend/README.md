@@ -1,46 +1,154 @@
-# Getting Started with Create React App
+# 🖥️ Document Scanner Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React + TypeScript application for scanning, viewing, and editing extracted information from immigration documents.
 
-## Available Scripts
+## 🚀 Features
 
-In the project directory, you can run:
+- **Document Upload**: Intuitive interface for uploading document images
+- **Document Viewing**: View scanned documents with extracted information
+- **Field Editing**: Edit and correct extracted information
+- **Document History**: Browse previously processed documents
+- **Responsive Design**: Works on desktop and mobile devices
 
-### `npm start`
+## 🛠️ Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **React 18**: Modern UI library
+- **TypeScript**: Type-safe JavaScript
+- **Material UI**: Component library for clean, modern UI
+- **Axios**: HTTP client for API communication
+- **React Dropzone**: File upload functionality
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 📂 Project Structure
 
-### `npm test`
+```
+frontend/
+├── public/                # Static assets
+├── src/
+│   ├── components/        # React components
+│   │   ├── DocumentCard/  # Document history card
+│   │   ├── DocumentList/  # Document history list
+│   │   ├── DocumentView/  # Document viewer component
+│   │   ├── FieldEditor/   # Field editing interface
+│   │   ├── Header/        # Application header
+│   │   └── UploadForm/    # Document upload form
+│   ├── services/          # API services
+│   │   └── api.ts         # API client
+│   ├── types/             # TypeScript type definitions
+│   │   └── index.ts       # Shared type definitions
+│   ├── utils/             # Utility functions
+│   │   └── logger.ts      # Logging utility
+│   ├── App.tsx            # Main application component
+│   └── index.tsx          # Application entry point
+├── package.json           # Project dependencies
+└── tsconfig.json          # TypeScript configuration
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🛠️ Setup & Installation
 
-### `npm run build`
+1. Install dependencies:
+   ```sh
+   npm install
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. Configure environment:
+   Create a `.env` file in the root directory with:
+   ```
+   REACT_APP_BACKEND_URL=http://localhost:8000
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. Start the development server:
+   ```sh
+   npm start
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4. Access the application at http://localhost:3000
 
-### `npm run eject`
+## 📊 Application Flow
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+1. **Document Upload**:
+   - User uploads a document image via the upload form
+   - Frontend sends the image to the backend API
+   - Backend processes the image and returns extracted information
+   - Frontend displays the document with extracted fields
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. **Document Viewing**:
+   - User can view the original document image
+   - Extracted fields are displayed alongside the image
+   - Fields are highlighted based on confidence level
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+3. **Field Editing**:
+   - User can edit any extracted field
+   - Changes are validated in real-time
+   - Updated fields are saved to the backend
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+4. **Document History**:
+   - User can browse previously processed documents
+   - Click on a document to view its details and make changes
 
-## Learn More
+## 🧩 Key Components
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### UploadForm
+Handles document upload and initial processing. Uses React Dropzone for drag-and-drop functionality.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### DocumentView
+Displays the document image alongside extracted information. Includes zoom and pan functionality.
+
+### FieldEditor
+Provides interface for editing extracted fields with validation.
+
+### DocumentList
+Displays a history of processed documents with search and filter capabilities.
+
+## 🔌 API Integration
+
+The frontend communicates with the backend via the API service defined in `src/services/api.ts`. Key endpoints:
+
+- `POST /api/documents` - Upload and process documents
+- `GET /api/documents` - Fetch document history
+- `PATCH /api/documents/{id}` - Update extracted fields
+
+## 🧪 Testing
+
+Run the test suite:
+```sh
+npm test
+```
+
+Run tests with coverage:
+```sh
+npm test -- --coverage
+```
+
+## 🏗️ Building for Production
+
+Build the application for production:
+```sh
+npm run build
+```
+
+The build artifacts will be stored in the `build/` directory.
+
+## 🔍 Debugging
+
+The application includes a logging utility in `src/utils/logger.ts` that can be used for debugging:
+
+```typescript
+import { logger } from '../utils/logger';
+
+// Log at different levels
+logger.info('Information message');
+logger.warn('Warning message');
+logger.error('Error message', error);
+```
+
+## 🎨 Customization
+
+### Theme Customization
+The Material UI theme can be customized in `src/theme.ts`.
+
+### Adding New Field Types
+To add support for new field types:
+
+1. Update the `Field` type in `src/types/index.ts`
+2. Add validation rules in `src/utils/validation.ts`
+3. Update the field display component in `src/components/FieldEditor`
