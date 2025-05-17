@@ -33,7 +33,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.return_value = mock_response
         
         # Call the extraction function
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "pp_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "pp_test.png")
         fields = get_gpt_extraction(image_path, "passport", ["document_type", "passport_number", "full_name", "nationality", "date_of_birth", "date_of_issue", "date_of_expiry"])
         
         # Validate the extracted fields
@@ -59,7 +59,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.return_value = mock_response
         
         # Call the extraction function
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "dl_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "dl_test.png")
         fields = get_gpt_extraction(image_path, "drivers_license", ["document_type", "license_number", "first_name", "last_name", "date_of_birth", "issue_date", "expiration_date"])
         
         # Validate the extracted fields
@@ -85,7 +85,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.return_value = mock_response
         
         # Call the extraction function
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "ead_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "ead_test.png")
         fields = get_gpt_extraction(image_path, "ead_card", ["document_type", "card_number", "first_name", "last_name", "category", "card_expires_date"])
         
         # Validate the extracted fields
@@ -102,7 +102,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.side_effect = Exception("API Error")
         
         # Call the extraction function and verify it returns None on error
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "pp_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "pp_test.png")
         fields = get_gpt_extraction(image_path, "passport", ["document_type"])
         
         assert fields is None
@@ -116,7 +116,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.return_value = mock_response
         
         # Call the extraction function and verify it handles the error
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "pp_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "pp_test.png")
         fields = get_gpt_extraction(image_path, "passport", ["document_type"])
         
         # Should either return None or an empty dict (depending on implementation)
@@ -134,7 +134,7 @@ class TestAIModelIntegration:
         mock_openai.ChatCompletion.create.return_value = mock_response
         
         # Call the extraction function
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "pp_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "pp_test.png")
         fields = get_gpt_extraction(image_path, "passport", ["document_type", "passport_number", "full_name"])
         
         # Validate that we got the fields that were provided
@@ -152,7 +152,7 @@ class TestAIModelIntegration:
             pytest.skip("No OpenAI API key available")
         
         # Test with a sample image
-        image_path = os.path.join(os.path.dirname(__file__), "test_data", "pp_test.png")
+        image_path = os.path.join(os.path.dirname(__file__), "..", "..", "test_data", "pp_test.png")
         with open(image_path, "rb") as f:
             image_bytes = f.read()
         

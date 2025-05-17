@@ -9,6 +9,7 @@ import base64
 from PIL import Image
 from io import BytesIO
 import httpx
+import openai  # Expose openai for test patching
 
 load_dotenv()
 
@@ -27,6 +28,8 @@ client = OpenAI(**client_kwargs)
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+openai = openai
 
 def check_image_quality(image_path: str) -> Tuple[bool, Optional[str]]:
     """

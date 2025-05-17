@@ -15,7 +15,7 @@ class TestFuzzyDataHandling:
     @pytest.fixture
     def test_dir(self):
         """Create a test directory if it doesn't exist"""
-        base_dir = "tests/test_data/fuzzy_data"
+        base_dir = "test_data/fuzzy_data"
         os.makedirs(base_dir, exist_ok=True)
         return base_dir
     

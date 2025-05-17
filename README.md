@@ -139,14 +139,14 @@ The frontend will be available at http://localhost:3000
 
 ## 📁 Sample Images and PDFs
 
-Sample test files are provided in the root-level [Images/](./Images/) and [PDFs/](./PDFs/) folders:
+Sample test files are provided in [test_data/Images/](./test_data/Images/) and [test_data/PDFs/](./test_data/PDFs/) folders:
 
-- [Images/](./Images/)
+- [test_data/Images/](./test_data/Images/)
   - `test_driver_license.png` — Sample driver's license image for testing
   - `test_ead_card.png` — Sample EAD card image for testing
   - `test_passport.png` — Sample passport image for testing
 
-- [PDFs/](./PDFs/)
+- [test_data/PDFs/](./test_data/PDFs/)
   - `test_driver_license.pdf` — Sample driver's license PDF for testing
   - `test_ead_card.pdf` — Sample EAD card PDF for testing
   - `test_passport.pdf` — Sample passport PDF for testing
@@ -162,6 +162,8 @@ This project includes comprehensive automated tests for both the backend (FastAP
 - **Frontend:** Uses [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) and [Jest](https://jestjs.io/) for component and integration tests.
 
 ---
+
+> **Note:** The `test_data/` directory contains all test data (e.g., sample images) used by tests. All backend test scripts are in `backend/tests/` (including standalone tests in `backend/tests/standalone/`), and frontend tests are colocated with components or in `frontend/src/__tests__/`.
 
 ### Backend Testing Details
 

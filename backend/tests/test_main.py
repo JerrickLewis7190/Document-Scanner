@@ -16,8 +16,8 @@ client = TestClient(app)
 
 # Get the absolute path to the test files
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-IMAGES_DIR = os.path.join(BASE_DIR, 'Images')
-PDFS_DIR = os.path.join(BASE_DIR, 'PDFs')
+IMAGES_DIR = os.path.join(BASE_DIR, 'test_data', 'Images')
+PDFS_DIR = os.path.join(BASE_DIR, 'test_data', 'PDFs')
 
 # Use an in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

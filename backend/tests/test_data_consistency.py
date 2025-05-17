@@ -19,7 +19,7 @@ class TestDataConsistency:
     
     @pytest.fixture
     def test_dir(self):
-        base_dir = "tests/test_data/consistency"
+        base_dir = "test_data/consistency"
         os.makedirs(base_dir, exist_ok=True)
         return base_dir
     
