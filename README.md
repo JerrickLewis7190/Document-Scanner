@@ -1,3 +1,13 @@
+<!-- Badges -->
+![GitHub repo size](https://img.shields.io/github/repo-size/JerrickLewis7190/document-scanner)
+![GitHub last commit](https://img.shields.io/github/last-commit/JerrickLewis7190/document-scanner)
+![GitHub issues](https://img.shields.io/github/issues/JerrickLewis7190/document-scanner)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/JerrickLewis7190/document-scanner)
+![License](https://img.shields.io/github/license/JerrickLewis7190/document-scanner)
+<!-- Uncomment and update these if you set up CI or coverage -->
+<!-- ![Build Status](https://github.com/JerrickLewis7190/document-scanner/actions/workflows/ci.yml/badge.svg) -->
+<!-- ![Coverage Status](https://coveralls.io/repos/github/JerrickLewis7190/document-scanner/badge.svg?branch=main) -->
+
 [📄 **Design Document**](./docs/Document%20Scanner%20Design.md)
 
 > For in-depth technical and architectural details, see:
@@ -50,7 +60,7 @@ To run this project, you'll need:
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/document-scanner.git
+git clone https://github.com/JerrickLewis7190/document-scanner.git
 cd document-scanner
 ```
 
@@ -127,6 +137,22 @@ The frontend will be available at http://localhost:3000
 4. Review and correct the extracted information if needed
 5. Save the document to view it in your document history
 
+## 📁 Sample Images and PDFs
+
+Sample test files are provided in the root-level [Images/](./Images/) and [PDFs/](./PDFs/) folders:
+
+- [Images/](./Images/)
+  - `test_driver_license.png` — Sample driver's license image for testing
+  - `test_ead_card.png` — Sample EAD card image for testing
+  - `test_passport.png` — Sample passport image for testing
+
+- [PDFs/](./PDFs/)
+  - `test_driver_license.pdf` — Sample driver's license PDF for testing
+  - `test_ead_card.pdf` — Sample EAD card PDF for testing
+  - `test_passport.pdf` — Sample passport PDF for testing
+
+These files are used in automated tests and can also be used to manually try out the application's upload and extraction features. Feel free to add your own sample documents for further testing or demonstration.
+
 ## 🧪 Testing
 
 This project includes comprehensive automated tests for both the backend (FastAPI) and frontend (React/TypeScript) to ensure reliability and maintainability.
@@ -150,7 +176,7 @@ pytest
 pytest tests/test_document_processing.py
 ```
 
-- **Test location:** All backend tests are in `backend/tests/`.
+- **Test location:** All backend tests are in [backend/tests/](./backend/tests/).
 - **Coverage:**
   - Document classification (passport, driver license, EAD card)
   - Field extraction and validation
@@ -176,63 +202,4 @@ npm test
 ```
 
 **Run a specific test file:**
-```bash
-npm test -- src/components/DocumentFields.test.tsx
 ```
-
-- **Test location:** Tests are colocated with components (e.g., `src/components/ComponentName.test.tsx`) or in `src/__tests__/`.
-- **Coverage:**
-  - UI interaction (upload, edit, delete, select)
-  - Field validation and correction
-  - Error handling and empty states
-  - Integration: simulates user flows (upload, edit, save, delete)
-- **Debugging:**
-  - Use `npm test -- --watch` to run tests interactively
-  - Use `npm test -- --coverage` for a coverage report
-
----
-
-### Troubleshooting
-- **Backend:**
-  - Ensure the test database is clean before running tests (`test.db` or in-memory)
-  - If you see OpenAI API errors, use a dummy key or mock the API in tests
-- **Frontend:**
-  - If tests fail due to module mocks, check that all required modules are mocked correctly
-  - Ensure environment variables (e.g., `REACT_APP_API_URL`) are set for test runs
-
----
-
-### Contribution Tips
-- **Backend:**
-  - Add new tests in `backend/tests/` for new endpoints or features
-  - Use fixtures for test data and database setup/teardown
-- **Frontend:**
-  - Add or update tests alongside new or modified components
-  - Prefer [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) queries for resilient tests
-- **General:**
-  - Run all tests before submitting a pull request
-  - Follow existing code style and linting rules
-
----
-
-### Additional Resources
-- [pytest documentation](https://docs.pytest.org/en/stable/)
-- [React Testing Library docs](https://testing-library.com/docs/)
-- [Jest documentation](https://jestjs.io/docs/getting-started)
-
----
-
-## 📚 API Documentation
-
-FastAPI provides automatic API documentation at:
-- http://localhost:8000/docs (Swagger UI)
-- http://localhost:8000/redoc (ReDoc)
-
-## 🎯 API Endpoints
-
-### Document Processing
-
-- `POST /api/documents` - Upload and process a document
-- `GET /api/documents` - List all documents
-- `GET /api/documents/{document_id}` - Get document details
-- `PUT /api/documents/{document_id}`

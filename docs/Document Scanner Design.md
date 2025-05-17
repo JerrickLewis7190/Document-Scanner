@@ -1,4 +1,6 @@
-[�� Backend Design](./Backend%20Design.md) | [🖥️ Frontend Design](./Frontend%20Design.md)
+[⬅️ Project README](../README.md)
+
+[ Backend Design](./Backend%20Design.md) | [🖥️ Frontend Design](./Frontend%20Design.md)
 
 # Casium Immigration Document Scanner
 

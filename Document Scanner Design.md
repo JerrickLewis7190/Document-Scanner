@@ -79,8 +79,6 @@ These preprocessing steps improve the quality of the extracted text and fields, 
 | PATCH  | /api/documents/{id}       | Update extracted fields                                                      |
 | DELETE | /api/documents/{id}       | Delete a single document                                                     |
 
-> Note: The endpoints `/classify`, `/extract`, `/save`, `/history` are now consolidated under `/api/documents` with RESTful semantics.
-
 ### Frontend (React + TypeScript)
 
 **High-Level Overview:**
