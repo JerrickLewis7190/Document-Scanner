@@ -25,6 +25,32 @@ A full-stack application designed to scan, classify, and extract information fro
 - **HTTP Client**: Axios
 - **File Upload**: React Dropzone
 
+## 📋 Prerequisites
+
+Before you begin, ensure you have the following installed on your system:
+
+- **Git**: Version control system
+  - [Download Git](https://git-scm.com/downloads)
+  
+- **Python**: Version 3.8+ (required for backend)
+  - [Download Python](https://www.python.org/downloads/) (3.8 or higher)
+  - Ensure pip is installed
+
+- **Node.js**: Version 16+ (required for frontend)
+  - [Download Node.js](https://nodejs.org/) (16.x or higher)
+  - npm comes bundled with Node.js
+
+- **Tesseract OCR**: (optional)
+  - [Tesseract Installation Guide](https://github.com/tesseract-ocr/tesseract#installing-tesseract)
+  - Windows: Can be installed via [Windows installer](https://github.com/UB-Mannheim/tesseract/wiki)
+  - macOS: `brew install tesseract`
+  - Linux: `sudo apt install tesseract-ocr`
+
+- **Poppler**: Required for PDF processing
+  - Windows: Install via [poppler for Windows](https://github.com/oschwartz10612/poppler-windows)
+  - macOS: `brew install poppler`
+  - Linux: `sudo apt-get install poppler-utils`
+
 ## 📂 Project Structure
 
 ```
