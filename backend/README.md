@@ -45,6 +45,32 @@ backend/
 
 ## 🛠️ Setup & Installation
 
+### System Requirements
+
+Before setting up the backend, ensure you have the following installed:
+
+- **Python**: Version 3.8 or higher
+  - [Download Python](https://www.python.org/downloads/)
+  - Verify installation: `python --version`
+
+- **Poppler**: Required for PDF processing
+  - Windows: Install via [poppler for Windows](https://github.com/oschwartz10612/poppler-windows)
+  - macOS: `brew install poppler`
+  - Linux: `sudo apt-get install poppler-utils`
+  - Add to PATH environment variable
+
+- **Tesseract OCR** (if using OCR features)
+  - Windows: Can be installed via [Windows installer](https://github.com/UB-Mannheim/tesseract/wiki)
+  - macOS: `brew install tesseract`
+  - Linux: `sudo apt install tesseract-ocr`
+  - Add to PATH environment variable
+
+- **OpenAI API Key**
+  - Create an account at [OpenAI](https://openai.com/)
+  - Generate API key from the OpenAI dashboard
+
+### Installation Steps
+
 1. Create and activate a virtual environment:
    ```sh
    python -m venv .venv
