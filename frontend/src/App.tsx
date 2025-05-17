@@ -59,11 +59,31 @@ function App() {
   const handleFieldsUpdate = async (documentId: number, fields: Field[]) => {
     try {
       setLoading(true);
-      const updatedDoc = await api.updateDocumentFields(documentId, fields);
-      setSelectedDocument(updatedDoc);
-      setDocuments(prev => prev.map(doc => (doc.id === updatedDoc.id ? updatedDoc : doc)));
+      console.log('Starting field update for document ID:', documentId);
+      console.log('Fields to update:', fields);
+      
+      await api.updateDocumentFields(documentId, fields);
+      console.log('Backend update successful, now fetching updated document');
+      
+      // Re-fetch the updated document
+      const updatedDoc = await api.getDocument(documentId);
+      console.log('Fetched updated document:', updatedDoc);
+      
+      setSelectedDocument((prevDoc: Document | null) => {
+        console.log('Previous selected document:', prevDoc);
+        console.log('New selected document:', updatedDoc);
+        return updatedDoc;
+      });
+      
+      setDocuments(prev => {
+        const newDocs = prev.map(doc => (doc.id === updatedDoc.id ? updatedDoc : doc));
+        console.log('Updated documents list');
+        return newDocs;
+      });
+      
       logger.info('Document fields updated successfully');
     } catch (error) {
+      console.error('Error in handleFieldsUpdate:', error);
       logger.error('Failed to update document fields:', error);
     } finally {
       setLoading(false);

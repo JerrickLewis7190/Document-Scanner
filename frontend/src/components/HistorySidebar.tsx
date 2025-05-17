@@ -59,7 +59,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
               sx={{ borderRadius: 1 }}
             >
               <ListItemText
-                primary={doc.filename}
+                primary={doc.file_name}
                 secondary={formatDocumentType(doc.document_type)}
                 primaryTypographyProps={{ fontWeight: doc.id === selectedDocumentId ? 'bold' : 'normal' }}
               />

@@ -177,6 +177,7 @@ def update_document_fields(
 ):
     """Update specific fields in a document"""
     logger.info(f"Updating fields for document {document_id}")
+    logger.debug(f"Update request: {request}")
     
     # Get document
     document = db.query(DocumentModel).filter(DocumentModel.id == document_id).first()
@@ -187,29 +188,36 @@ def update_document_fields(
     # Update fields in document_content
     updated_content = document.extracted_fields.copy()
     for field in request.fields:
-        if field.field_name != 'document_type':  # Prevent document_type from being changed
-            updated_content[field.field_name] = field.field_value
-            
-            # Update or create ExtractedField
-            extracted_field = db.query(ExtractedField).filter(
-                ExtractedField.document_id == document_id,
-                ExtractedField.field_name == field.field_name
-            ).first()
-            
-            if extracted_field:
-                extracted_field.field_value = field.field_value
-                extracted_field.corrected = True
-            else:
-                new_field = ExtractedField(
-                    document_id=document_id,
-                    field_name=field.field_name,
-                    field_value=field.field_value,
-                    corrected=True
-                )
-                db.add(new_field)
+        # Remove the restriction that prevents document_type from being changed
+        updated_content[field.field_name] = field.field_value
+        
+        # Update or create ExtractedField
+        extracted_field = db.query(ExtractedField).filter(
+            ExtractedField.document_id == document_id,
+            ExtractedField.field_name == field.field_name
+        ).first()
+        
+        if extracted_field:
+            extracted_field.field_value = field.field_value
+            extracted_field.corrected = True
+        else:
+            new_field = ExtractedField(
+                document_id=document_id,
+                field_name=field.field_name,
+                field_value=field.field_value,
+                corrected=True
+            )
+            db.add(new_field)
     
     # Update document
     document.extracted_fields = updated_content
+    # If document_type was updated, also update the document's type field
+    for field in request.fields:
+        if field.field_name == 'document_type':
+            document.document_type = field.field_value
+            logger.info(f"Updated document_type to {field.field_value}")
+            break
+    
     db.commit()
     db.refresh(document)
     
@@ -218,6 +226,7 @@ def update_document_fields(
         id=document.id,
         filename=document.filename,
         document_type=document.document_type,
+        created_at=document.created_at,
         document_content=document.extracted_fields,
         image_url=f"/uploads/{document.filename}"
     ) 

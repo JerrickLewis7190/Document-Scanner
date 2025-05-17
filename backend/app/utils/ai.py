@@ -226,14 +226,42 @@ def get_gpt_extraction(image_path: str, doc_type: str, fields: List[str]) -> Dic
             logger.error(f"Error processing image: {str(img_error)}")
             return {field: "NOT_FOUND" for field in fields}
 
-        # Create a focused, direct prompt for GPT
+        # Fields string for the prompt
         fields_str = ', '.join(fields)
-        # Enhanced prompt for document_number extraction
-        prompt = (
-            f"Extract the following fields from this document image and return them as a JSON object with exactly these keys: {fields_str}. "
-            'For the field "document_number", extract the value labeled as "Passport Number", "Document Number", "Document No.", "Passport No.", or similar, and return it as "document_number" in the JSON. '
-            'If a field is missing or unreadable, use "NOT_FOUND". Do not include any explanation or extra text.'
-        )
+        
+        # Create document-type specific prompts
+        if doc_type.lower() == 'passport':
+            prompt = (
+                f"Extract the following fields from this passport document and return them as a JSON object with exactly these keys: {fields_str}. "
+                "Focus on these critical passport fields: full_name, date_of_birth, country, issue_date, expiration_date, nationality, document_number. "
+                "For document_number, look for 'Passport Number' or similar. "
+                "For country and nationality, look for 'Nationality' or country of issuance. "
+                'If a field is missing or unreadable, use "NOT_FOUND". Return only a JSON object without explanation.'
+            )
+        elif doc_type.lower() in ['drivers_license', 'driver license', 'dl']:
+            prompt = (
+                f"Extract the following fields from this driver's license document and return them as a JSON object with exactly these keys: {fields_str}. "
+                "Focus ONLY on these critical driver's license fields: license_number, date_of_birth, issue_date, expiration_date, first_name, last_name. "
+                "For license_number, look for 'Driver License Number', 'DL Number', or similar. "
+                "The license_number field is the most important field to extract correctly. "
+                'If a field is missing or unreadable, use "NOT_FOUND". Return only a JSON object without explanation.'
+            )
+        elif doc_type.lower() in ['ead', 'employment authorization']:
+            prompt = (
+                f"Extract the following fields from this Employment Authorization Document (EAD) and return them as a JSON object with exactly these keys: {fields_str}. "
+                "Focus on these critical EAD fields: card_number, category, card_expires_date, last_name, first_name. "
+                "For card_number, look for 'Card#', 'EAD Number', or similar. "
+                "For card_expires_date, look for 'Expires' or 'Valid Until'. "
+                'If a field is missing or unreadable, use "NOT_FOUND". Return only a JSON object without explanation.'
+            )
+        else:
+            # Generic prompt for unknown document types
+            prompt = (
+                f"Extract the following fields from this document image and return them as a JSON object with exactly these keys: {fields_str}. "
+                "For the field 'document_number', extract the value labeled as 'Number', 'Document Number', 'ID Number', or similar. "
+                'If a field is missing or unreadable, use "NOT_FOUND". Return only a JSON object without explanation.'
+            )
+        
         # --- LOGGING ---
         logger.info(f"Sending image to GPT-4 Vision: {image_path}")
         logger.info(f"Prompt sent to GPT-4 Vision:\n{prompt}")

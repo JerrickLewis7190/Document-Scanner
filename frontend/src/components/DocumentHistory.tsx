@@ -76,7 +76,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({
               onClick={() => onSelect(doc)}
             >
               <ListItemText
-                primary={doc.filename}
+                primary={doc.file_name}
                 secondary={doc.document_type}
               />
             </ListItemButton>

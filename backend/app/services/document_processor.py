@@ -7,6 +7,7 @@ from typing import Dict, Tuple, List, Optional
 from PIL import Image
 from pdf2image import convert_from_bytes
 from ..utils.ai import get_gpt_classification, get_gpt_extraction
+from ..utils.field_mapping import standardize_field_names, validate_required_fields, get_essential_fields, REQUIRED_FIELDS
 from ..preprocess_image import preprocess_image
 from datetime import datetime
 
@@ -18,44 +19,40 @@ class DocumentProcessor:
         
     def _setup_templates(self):
         """Setup field templates for different document types"""
+        # Define comprehensive field lists for each document type
         self.field_templates = {
             'drivers_license': {
                 'fields': [
                     'license_number',
                     'first_name',
-                    'middle_initial',
                     'last_name',
                     'date_of_birth',
                     'issue_date',
                     'expiration_date',
-                    'address',
-                    'sex',
-                    'height',
-                    'weight',
-                    'eyes',
-                    'restrictions',
-                    'endorsements',
-                    'donor',
-                    'document_type',
-                    'revision_date'
+                    'document_type'
                 ]
             },
             'passport': {
                 'fields': [
+                    'document_number',
                     'passport_number',
+                    'full_name', 
                     'surname',
                     'given_names',
                     'nationality',
+                    'country',
                     'date_of_birth',
                     'place_of_birth',
                     'date_of_issue',
+                    'issue_date',
                     'date_of_expiry',
+                    'expiration_date',
                     'authority',
                     'sex',
                     'document_type'
                 ]
             },
-            'ead': {
+            'ead_card': {
                 'fields': [
                     'card_number',
                     'first_name',
@@ -64,6 +61,7 @@ class DocumentProcessor:
                     'category',
                     'valid_from',
                     'expires',
+                    'card_expires_date',
                     'alien_number',
                     'document_type'
                 ]
@@ -138,7 +136,7 @@ class DocumentProcessor:
                 preprocessed_path = preprocess_image(temp_file_path)
                 image_path_to_use = preprocessed_path
 
-            # Define fields to extract based on document type
+            # Define base fields to extract for initial document type detection
             common_fields = [
                 "document_type",
                 "first_name",
@@ -151,7 +149,7 @@ class DocumentProcessor:
                 "nationality"
             ]
 
-            # Extract fields using GPT-4 Vision
+            # First pass: Extract basic fields to determine document type
             extracted_data = get_gpt_extraction(image_path_to_use, "UNKNOWN", common_fields)
             
             if not extracted_data:
@@ -167,24 +165,58 @@ class DocumentProcessor:
                 doc_type = "ead_card"
             else:
                 doc_type = "unknown"
-
+                
+            # Get the essential fields for this document type
+            essential_fields = get_essential_fields(doc_type)
+            
+            # If we have a known document type, perform a second pass with document-specific fields
+            if doc_type != "unknown" and doc_type in self.field_templates:
+                # Get all potential fields for this document type
+                all_doc_fields = self.field_templates[doc_type]['fields']
+                
+                # Second pass: Extract with document-specific prompt and fields
+                second_pass_data = get_gpt_extraction(image_path_to_use, doc_type, all_doc_fields)
+                
+                if second_pass_data:
+                    # Merge the two extraction results, preferring second_pass_data
+                    for field, value in second_pass_data.items():
+                        extracted_data[field] = value
+            
+            # Standardize field names based on aliases
+            standardized_data = standardize_field_names(extracted_data, doc_type)
+            
+            # Validate required fields
+            is_valid, missing_fields = validate_required_fields(standardized_data, doc_type)
+            critical_fields_missing = not is_valid
+            
             # Format extracted fields for database
             formatted_fields = []
-            critical_fields_missing = False
             date_fields = [
-                "date_of_birth", "expiration_date", "issue_date", "date_of_issue", "date_of_expiry", "valid_from", "expires"
+                "date_of_birth", "expiration_date", "issue_date", "date_of_issue", 
+                "date_of_expiry", "valid_from", "expires", "card_expires_date"
             ]
-            for field_name, field_value in extracted_data.items():
-                # Check if critical fields are missing
-                if field_name in ["first_name", "last_name", "date_of_birth", "document_number"]:
-                    if field_value == "NOT_FOUND":
-                        critical_fields_missing = True
-                # Only normalize date fields, never document_number or its aliases
+            
+            # Process all fields from standardized data
+            for field_name, field_value in standardized_data.items():
+                # Skip empty values
+                if field_value is None:
+                    field_value = "NOT_FOUND"
+                
+                # Normalize date fields only
                 if field_name in date_fields and field_value not in ("NOT_FOUND", None, ""):
                     field_value = self.normalize_date(field_value)
+                
+                # Determine if this is a required field for the document type
+                is_required = False
+                if doc_type in REQUIRED_FIELDS:
+                    is_required = field_name in REQUIRED_FIELDS[doc_type]
+                
                 formatted_fields.append({
                     "field_name": field_name,
-                    "field_value": field_value if field_value else "NOT_FOUND"
+                    "field_value": field_value if field_value else "NOT_FOUND",
+                    "needs_correction": field_value == "NOT_FOUND" and is_required,
+                    "confidence_score": 0.8 if field_value != "NOT_FOUND" else 0.0,
+                    "error_message": "Field is required" if field_value == "NOT_FOUND" and is_required else None
                 })
 
             error_msg = "Critical fields missing - manual review required" if critical_fields_missing else None
