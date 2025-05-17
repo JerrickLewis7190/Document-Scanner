@@ -1,106 +1,90 @@
 import axios from 'axios';
+import { Document, DocumentResponse, Field } from '../types';
 import { logger } from '../utils/logger';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
-export interface Field {
-  field_name: string;
-  field_value: string;
-  corrected: boolean;
-}
-
-export interface Document {
-  id: number;
-  filename: string;
-  document_type: string;
-  created_at: string;
-  fields: Field[];
-}
-
-export interface DocumentClassification {
-  document_type: string;
-  confidence: number;
+function convertContentToFields(content: Record<string, string>): Field[] {
+  return Object.entries(content)
+    .filter(([key]) => key !== 'document_type')
+    .map(([field_name, field_value]) => ({
+      field_name,
+      field_value: field_value || '',
+      corrected: false
+    }));
 }
 
 const api = {
+  async getDocuments(): Promise<Document[]> {
+    try {
+      const response = await axios.get<DocumentResponse[]>(`${API_BASE_URL}/api/documents`);
+      return response.data.map((doc) => ({
+        ...doc,
+        created_at: new Date().toISOString(),
+        fields: convertContentToFields(doc.document_content)
+      }));
+    } catch (error) {
+      logger.error('Failed to fetch documents:', error);
+      throw error;
+    }
+  },
+
   async uploadDocument(file: File): Promise<Document> {
-    logger.debug(`Preparing to upload file: ${file.name}`);
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      logger.info('Sending document upload request to API');
-      const response = await axios.post<Document>(`${API_BASE_URL}/documents`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      logger.info(`Document uploaded successfully, received ID: ${response.data.id}`);
-      return response.data;
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post<DocumentResponse>(`${API_BASE_URL}/api/documents`, formData);
+      return {
+        ...response.data,
+        created_at: new Date().toISOString(),
+        fields: convertContentToFields(response.data.document_content)
+      };
     } catch (error) {
-      logger.error('Failed to upload document', error);
+      logger.error('Failed to upload document:', error);
       throw error;
     }
   },
 
-  async classifyDocument(file: File): Promise<DocumentClassification> {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await axios.post<DocumentClassification>(`${API_BASE_URL}/classify`, formData);
-    return response.data;
-  },
-
-  async getDocuments(
-    skip: number = 0,
-    limit: number = 100
-  ): Promise<Document[]> {
-    logger.debug('Fetching all documents from API');
+  async updateDocumentFields(documentId: number, fields: Field[]): Promise<Document> {
     try {
-      const response = await axios.get<Document[]>(`${API_BASE_URL}/documents`, {
-        params: { skip, limit },
-      });
-      logger.info(`Retrieved ${response.data.length} documents`);
-      return response.data;
+      const updatedContent = fields.reduce((acc, field) => {
+        acc[field.field_name] = field.field_value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const response = await axios.patch<DocumentResponse>(
+        `${API_BASE_URL}/api/documents/${documentId}`,
+        { document_content: updatedContent }
+      );
+
+      return {
+        ...response.data,
+        created_at: new Date().toISOString(),
+        fields: convertContentToFields(response.data.document_content)
+      };
     } catch (error) {
-      logger.error('Failed to fetch documents', error);
+      logger.error('Failed to update document fields:', error);
       throw error;
     }
   },
 
-  async getDocument(id: number): Promise<Document> {
-    logger.debug(`Fetching document with ID: ${id}`);
+  async deleteDocument(documentId: number): Promise<void> {
     try {
-      const response = await axios.get<Document>(`${API_BASE_URL}/documents/${id}`);
-      logger.info(`Retrieved document: ${response.data.filename}`);
-      return response.data;
+      await axios.delete(`${API_BASE_URL}/api/documents/${documentId}`);
     } catch (error) {
-      logger.error(`Failed to fetch document with ID: ${id}`, error);
-      throw error;
-    }
-  },
-
-  async deleteDocument(id: number): Promise<void> {
-    logger.debug(`Deleting document with ID: ${id}`);
-    try {
-      await axios.delete(`${API_BASE_URL}/documents/${id}`);
-      logger.info(`Document ${id} deleted successfully`);
-    } catch (error) {
-      logger.error(`Failed to delete document with ID: ${id}`, error);
+      logger.error('Failed to delete document:', error);
       throw error;
     }
   },
 
   async deleteAllDocuments(): Promise<void> {
-    logger.debug('Deleting all documents');
     try {
-      await axios.delete(`${API_BASE_URL}/documents`);
-      logger.info('All documents deleted successfully');
+      await axios.delete(`${API_BASE_URL}/api/documents`);
     } catch (error) {
-      logger.error('Failed to delete all documents', error);
+      logger.error('Failed to delete all documents:', error);
       throw error;
     }
   }
 };
 
-export default api; 
+export default api;

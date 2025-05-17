@@ -3,11 +3,15 @@ import { Paper, Box, Typography, CircularProgress } from '@mui/material';
 
 interface DocumentViewerProps {
   file?: File;
+  imageUrl?: string;
   loading?: boolean;
 }
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
+
 const DocumentViewer: React.FC<DocumentViewerProps> = ({
   file,
+  imageUrl,
   loading = false
 }) => {
   const [imageError, setImageError] = useState(false);
@@ -28,7 +32,41 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     );
   }
 
-  if (!file) {
+  // Handle backend image URL
+  const fullImageUrl = imageUrl?.startsWith('http') 
+    ? imageUrl 
+    : imageUrl 
+      ? `${BACKEND_URL}${imageUrl}` 
+      : undefined;
+
+  if (fullImageUrl && !imageError) {
+    return (
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          height: '100%', 
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <Box
+          component="img"
+          src={fullImageUrl}
+          alt="Document Preview"
+          onError={() => setImageError(true)}
+          sx={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain'
+          }}
+        />
+      </Paper>
+    );
+  }
+
+  if (!file && !fullImageUrl) {
     return (
       <Paper
         elevation={3}
@@ -41,15 +79,16 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
         }}
       >
         <Typography color="textSecondary">
-          Upload a document to view it here
+          No document to display
         </Typography>
       </Paper>
     );
   }
 
-  const fileUrl = URL.createObjectURL(file);
+  const fileUrl = file ? URL.createObjectURL(file) : undefined;
 
-  if (file.type === 'application/pdf') {
+  // Handle PDF files
+  if (file && file.type === 'application/pdf' && fileUrl) {
     return (
       <Paper elevation={3} sx={{ height: '100%' }}>
         <Box
@@ -66,21 +105,24 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     );
   }
 
+  // Handle image files
   return (
     <Paper elevation={3} sx={{ height: '100%', overflow: 'hidden' }}>
       {imageError ? (
         <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          height="100%"
-          p={3}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            p: 3
+          }}
         >
           <Typography color="error">
             Error loading image
           </Typography>
         </Box>
-      ) : (
+      ) : fileUrl ? (
         <Box
           component="img"
           src={fileUrl}
@@ -92,6 +134,20 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
             objectFit: 'contain'
           }}
         />
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            p: 3
+          }}
+        >
+          <Typography color="textSecondary">
+            No preview available
+          </Typography>
+        </Box>
       )}
     </Paper>
   );

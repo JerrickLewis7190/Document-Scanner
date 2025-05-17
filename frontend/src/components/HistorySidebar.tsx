@@ -7,14 +7,11 @@ import {
   ListItemSecondaryAction,
   IconButton,
   Typography,
-  Button,
-  Box,
-  Divider,
-  ListItemButton
+  ListItemButton,
+  Box
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
-import { Document } from '../services/api';
+import { Document } from '../types';
 
 interface HistorySidebarProps {
   documents: Document[];
@@ -28,7 +25,6 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
   documents,
   onDocumentSelect,
   onDocumentDelete,
-  onDeleteAll,
   selectedDocumentId
 }) => {
   const formatDocumentType = (type: string): string => {
@@ -43,47 +39,38 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
   };
 
   return (
-    <Paper elevation={3} sx={{ height: '100%', overflow: 'hidden' }}>
-      <Box p={2} display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Document History</Typography>
-        <Button
-          startIcon={<DeleteSweepIcon />}
-          color="error"
-          onClick={onDeleteAll}
-          disabled={documents.length === 0}
-        >
-          Clear All
-        </Button>
+    <Paper elevation={0} sx={{ height: '100%', overflow: 'hidden', bgcolor: 'transparent', boxShadow: 'none' }}>
+      <Box p={2} pb={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+          Recent extractions
+        </Typography>
       </Box>
-      <Divider />
-      <List sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+      <List sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 180px)', px: 1 }}>
         {documents.map((doc) => (
           <ListItem
             key={doc.id}
             component="div"
             disablePadding
+            sx={{ mb: 1, borderRadius: 1, bgcolor: doc.id === selectedDocumentId ? '#e3f2fd' : 'transparent' }}
           >
             <ListItemButton
               selected={doc.id === selectedDocumentId}
               onClick={() => onDocumentSelect(doc)}
+              sx={{ borderRadius: 1 }}
             >
               <ListItemText
                 primary={doc.filename}
-                secondary={
-                  <>
-                    {formatDocumentType(doc.document_type)}
-                    <br />
-                    {formatDate(doc.created_at)}
-                  </>
-                }
+                secondary={formatDocumentType(doc.document_type)}
+                primaryTypographyProps={{ fontWeight: doc.id === selectedDocumentId ? 'bold' : 'normal' }}
               />
               <ListItemSecondaryAction>
                 <IconButton
                   edge="end"
                   aria-label="delete"
                   onClick={() => onDocumentDelete(doc.id)}
+                  size="small"
                 >
-                  <DeleteIcon />
+                  <DeleteIcon fontSize="small" />
                 </IconButton>
               </ListItemSecondaryAction>
             </ListItemButton>

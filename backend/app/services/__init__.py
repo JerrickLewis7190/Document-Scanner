@@ -1,3 +1,3 @@
 """
-Service layer for business logic and document processing.
+Service layer for Document Scanner
 """ 

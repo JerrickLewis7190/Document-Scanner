@@ -39,6 +39,7 @@ class DocumentResponse(BaseModel):
     document_type: str
     document_content: Dict[str, str]
     filename: str
+    image_url: str  # URL to access the original uploaded image
 
 class DocumentClassification(BaseModel):
     document_type: str
@@ -49,4 +50,7 @@ class FieldExtractionRequest(BaseModel):
     text_content: str
 
 class FieldExtractionResponse(BaseModel):
+    fields: List[ExtractedFieldBase]
+
+class UpdateFieldsRequest(BaseModel):
     fields: List[ExtractedFieldBase] 

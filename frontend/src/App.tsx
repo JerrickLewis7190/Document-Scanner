@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Grid, Box, Alert, Snackbar, Paper, Button, Typography } from '@mui/material';
+import { Grid, Box, Alert, Snackbar, Typography, AppBar, Toolbar, Button } from '@mui/material';
 import UploadForm from './components/UploadForm';
 import DocumentViewer from './components/DocumentViewer';
-import FieldEditor from './components/FieldEditor';
-import DocumentHistory from './components/DocumentHistory';
-import api, { Document, Field } from './services/api';
-import AddIcon from '@mui/icons-material/Add';
+import DocumentFields from './components/DocumentFields';
+import HistorySidebar from './components/HistorySidebar';
+import { Document, Field } from './types';
+import api from './services/api';
 import { logger } from './utils/logger';
 
 function App() {
@@ -56,28 +56,15 @@ function App() {
     }
   };
 
-  const handleFieldSave = async (fields: Field[]) => {
-    if (!selectedDocument) {
-      logger.warn('Attempted to save fields with no document selected');
-      return;
-    }
-
-    logger.info(`Saving fields for document ID: ${selectedDocument.id}`);
-    setLoading(true);
-    setError(null);
-
+  const handleFieldsUpdate = async (documentId: number, fields: Field[]) => {
     try {
-      logger.debug('Updating document fields in API');
-      const updatedDoc = await api.getDocument(selectedDocument.id);
-      logger.info('Document fields updated successfully');
-      setDocuments(prev =>
-        prev.map(doc => (doc.id === updatedDoc.id ? updatedDoc : doc))
-      );
+      setLoading(true);
+      const updatedDoc = await api.updateDocumentFields(documentId, fields);
       setSelectedDocument(updatedDoc);
-    } catch (err) {
-      const errorMessage = 'Failed to save changes';
-      logger.error(errorMessage, err);
-      setError(errorMessage);
+      setDocuments(prev => prev.map(doc => (doc.id === updatedDoc.id ? updatedDoc : doc)));
+      logger.info('Document fields updated successfully');
+    } catch (error) {
+      logger.error('Failed to update document fields:', error);
     } finally {
       setLoading(false);
     }
@@ -86,7 +73,6 @@ function App() {
   const handleDocumentSelect = (document: Document) => {
     logger.info(`Selected document ID: ${document.id}`);
     setSelectedDocument(document);
-    setCurrentFile(undefined);
     setShowUploadForm(false);
   };
 
@@ -122,80 +108,73 @@ function App() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ height: '100vh', py: 3 }}>
-      <Grid container spacing={2} sx={{ height: '100%' }}>
-        {/* Left Panel */}
-        <Grid item xs={3} sx={{ height: '100%' }}>
-          <Paper elevation={3} sx={{ height: '100%', p: 2, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Document Scanner
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Grid container sx={{ flexGrow: 1, height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+        {/* Left Sidebar */}
+        <Grid item sx={{ width: 300, minWidth: 250, maxWidth: 350, bgcolor: '#f7f7f7', borderRight: '1px solid #ddd', display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid #ddd' }}>
             <Button
               variant="contained"
               color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => setShowUploadForm(true)}
+              fullWidth
+              onClick={() => setShowUploadForm(!showUploadForm)}
               sx={{ mb: 2 }}
-              size="large"
             >
-              Extract New Document {documents.length > 0 && `(${documents.length})`}
+              {showUploadForm ? 'Cancel' : 'Extract New Document'}
             </Button>
-            
-            <Typography variant="h6" sx={{ mb: 2 }}>Recent extractions</Typography>
-            
-            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-              <DocumentHistory
-                documents={documents}
-                selectedDocument={selectedDocument}
-                onSelectDocument={handleDocumentSelect}
-                onDeleteDocument={handleDocumentDelete}
-                onDeleteAllDocuments={handleDeleteAll}
+          </Box>
+          <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+            <HistorySidebar
+              documents={documents}
+              onDocumentSelect={handleDocumentSelect}
+              onDocumentDelete={handleDocumentDelete}
+              onDeleteAll={handleDeleteAll}
+              selectedDocumentId={selectedDocument?.id}
+            />
+          </Box>
+        </Grid>
+        {/* Center Panel */}
+        <Grid item sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', bgcolor: '#fff', borderRight: '1px solid #eee', minWidth: 0, height: '100%', overflow: 'hidden' }}>
+          <Box sx={{ flexGrow: 1, height: '100%', p: 2 }}>
+            {showUploadForm ? (
+              <UploadForm onFileUpload={handleFileUpload} />
+            ) : selectedDocument ? (
+              <DocumentViewer
+                file={currentFile}
+                loading={loading}
+                imageUrl={selectedDocument.image_url}
               />
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Middle Panel - Document Viewer */}
-        <Grid item xs={6} sx={{ height: '100%' }}>
-          <Paper elevation={3} sx={{ height: '100%', p: 2, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Original document view</Typography>
-            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-              {showUploadForm ? (
-                <UploadForm onFileUpload={handleFileUpload} />
-              ) : (
-                <DocumentViewer
-                  file={currentFile}
-                  loading={loading}
-                />
-              )}
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Right Panel - Field Editor */}
-        <Grid item xs={3} sx={{ height: '100%' }}>
-          <Paper elevation={3} sx={{ height: '100%', p: 2, display: 'flex', flexDirection: 'column' }}>
-            {selectedDocument ? (
-              <>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Extracted Fields
-                </Typography>
-                <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-                  <FieldEditor
-                    fields={selectedDocument.fields}
-                    onSave={handleFieldSave}
-                    loading={loading}
-                  />
-                </Box>
-              </>
             ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography color="textSecondary">
-                  Select a document to view extracted fields
+              <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography color="textSecondary" variant="h6">
+                  No document selected
                 </Typography>
               </Box>
             )}
-          </Paper>
+          </Box>
+        </Grid>
+        {/* Right Panel */}
+        <Grid item sx={{ width: 400, minWidth: 320, maxWidth: 500, bgcolor: '#fafbfc', height: '100%', overflow: 'auto', p: 2 }}>
+          {selectedDocument && !showUploadForm ? (
+            <DocumentFields
+              document={selectedDocument}
+              onFieldsUpdate={handleFieldsUpdate}
+            />
+          ) : (
+            <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+              <Typography variant="h6">No document selected</Typography>
+              <Typography variant="body2">Select a document to view its fields.</Typography>
+            </Box>
+          )}
         </Grid>
       </Grid>
-
       {/* Error Snackbar */}
       <Snackbar
         open={!!error}
@@ -206,7 +185,7 @@ function App() {
           {error}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 }
 

@@ -57,13 +57,13 @@ def test_process_passport_image():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("passport.png", io.BytesIO(file_content), "image/png")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "passport"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -74,13 +74,13 @@ def test_process_drivers_license_image():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("license.png", io.BytesIO(file_content), "image/png")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "drivers_license"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -91,13 +91,13 @@ def test_process_ead_image():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("ead.png", io.BytesIO(file_content), "image/png")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "ead"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -108,13 +108,13 @@ def test_process_passport_pdf():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("passport.pdf", io.BytesIO(file_content), "application/pdf")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "passport"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -125,13 +125,13 @@ def test_process_drivers_license_pdf():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("license.pdf", io.BytesIO(file_content), "application/pdf")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "drivers_license"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -142,13 +142,13 @@ def test_process_ead_pdf():
             file_content = f.read()
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("ead.pdf", io.BytesIO(file_content), "application/pdf")},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["document_type"] == "ead"
-        assert "document_content" in data
+        assert "fields" in data
     finally:
         cleanup_after_test()
 
@@ -159,7 +159,7 @@ def test_process_invalid_file():
         invalid_content = b"This is not a valid PDF file"
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("invalid.pdf", io.BytesIO(invalid_content), "application/pdf")},
         )
         assert response.status_code == 400
@@ -171,7 +171,7 @@ def test_process_unsupported_file_type():
     """Test processing an unsupported file type"""
     try:
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("test.txt", io.BytesIO(b"test"), "text/plain")},
         )
         assert response.status_code == 400
@@ -186,7 +186,7 @@ def test_process_large_file():
         large_content = b"0" * (11 * 1024 * 1024)
         
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("large.pdf", io.BytesIO(large_content), "application/pdf")},
         )
         assert response.status_code == 400
@@ -200,23 +200,22 @@ def test_delete_document_success():
         # First create a document
         with open(os.path.join(IMAGES_DIR, 'Passport Test Image.png'), 'rb') as f:
             file_content = f.read()
-        
+            
         # Upload document
         response = client.post(
-            "/api/documents/process",
+            "/api/documents",
             files={"file": ("passport.png", io.BytesIO(file_content), "image/png")},
         )
         assert response.status_code == 200
-        data = response.json()
-        document_id = data["id"]
+        doc_id = response.json()["id"]
         
         # Delete document
-        response = client.delete(f"/api/documents/{document_id}")
+        response = client.delete(f"/api/documents/{doc_id}")
         assert response.status_code == 200
-        assert "successfully deleted" in response.json()["message"]
+        assert response.json()["status"] == "success"
         
-        # Verify it's gone
-        response = client.get(f"/api/documents/{document_id}")
+        # Verify document is deleted
+        response = client.get(f"/api/documents/{doc_id}")
         assert response.status_code == 404
     finally:
         cleanup_after_test()

@@ -1,3 +1,3 @@
 """
-Utility functions for document processing and AI integration.
+Utility functions for Document Scanner
 """ 

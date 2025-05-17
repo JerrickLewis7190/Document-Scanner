@@ -1,16 +1,22 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 import uvicorn
 from typing import Dict
 import aiofiles
 import os
 from datetime import datetime
+import logging
 
 from app.database import get_db, engine
 from app.models import Base, Document
 from app.schemas import DocumentResponse, Document as DocumentSchema
 from app.services.document_processor import DocumentProcessor
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -26,12 +32,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]
+)
+
 # Initialize document processor
 document_processor = DocumentProcessor()
 
 # Ensure uploads directory exists
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+if not os.path.exists(UPLOAD_DIR):
+    logger.info(f"Creating upload directory at: {UPLOAD_DIR}")
+    os.makedirs(UPLOAD_DIR)
 
 @app.post("/api/documents/process", response_model=DocumentResponse)
 async def process_document(

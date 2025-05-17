@@ -1,13 +1,17 @@
-import { Field } from '../services/api';
+export interface Field {
+    field_name: string;
+    field_value: string;
+    corrected: boolean;
+}
 
 export interface Document {
     id: number;
     filename: string;
     document_type: string;
     created_at: string;
-    updated_at?: string;
+    document_content: Record<string, string>;
     fields: Field[];
-    extracted_fields?: Record<string, string>;
+    image_url: string;
 }
 
 export interface DocumentResponse {
@@ -15,4 +19,5 @@ export interface DocumentResponse {
     document_type: string;
     document_content: Record<string, string>;
     filename: string;
+    image_url: string;
 } 

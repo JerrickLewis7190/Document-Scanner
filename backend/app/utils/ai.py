@@ -1,214 +1,301 @@
 import os
 import re
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
+import json
+import logging
+import base64
+from PIL import Image
+from io import BytesIO
+import httpx
 
 load_dotenv()
 
-# Configure OpenAI
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Configure OpenAI with optional proxy
+client_kwargs = {"api_key": os.getenv("OPENAI_API_KEY")}
+
+# Only add proxy if FIDDLER_PROXY is enabled
+if os.getenv("FIDDLER_PROXY", "").lower() == "true":
+    transport = httpx.HTTPTransport(
+        proxy="http://127.0.0.1:8888",  # Fiddler default port
+        verify=False  # Required for Fiddler HTTPS inspection
+    )
+    client_kwargs["http_client"] = httpx.Client(transport=transport)
+
+client = OpenAI(**client_kwargs)
+
+# Configure logger
+logger = logging.getLogger(__name__)
+
+def check_image_quality(image_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Check basic image quality before sending to GPT-4 Vision.
+    Returns (is_valid, error_message)
+    """
+    try:
+        with Image.open(image_path) as img:
+            # Check if image is empty or solid color
+            if img.mode == 'RGB':
+                # Convert to grayscale for histogram analysis
+                img = img.convert('L')
+            
+            # Get image histogram
+            hist = img.histogram()
+            
+            # Check if image is mostly empty (>90% white or black)
+            width, height = img.size
+            total_pixels = width * height
+            white_threshold = int(total_pixels * 0.9)
+            black_threshold = int(total_pixels * 0.9)
+            
+            if hist[0] > black_threshold or hist[255] > white_threshold:
+                return False, "Image appears to be blank or too dark. Please provide a clearer scan."
+            
+            # Check file size
+            img.seek(0)
+            file_size = os.path.getsize(image_path)
+            if file_size > 10 * 1024 * 1024:  # 10MB
+                return False, "File size too large. Please compress the image."
+            
+            return True, None
+            
+    except Exception as e:
+        logger.error(f"Error checking image quality: {e}")
+        return False, f"Invalid image file: {str(e)}"
+
+def validate_gpt_response(response_text: str, doc_type: str, fields: List[str]) -> Tuple[bool, Optional[str], Optional[Dict]]:
+    """
+    Parse GPT's response and extract JSON.
+    Returns (is_valid, error_message, extracted_fields)
+    """
+    try:
+        # Log the raw response for debugging
+        logger.debug(f"Raw GPT response: {response_text}")
+        
+        # First try direct JSON parsing
+        try:
+            extracted_fields = json.loads(response_text)
+            logger.debug("Direct JSON parsing successful")
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to find JSON object in the response
+            logger.debug("Direct JSON parsing failed, trying to extract JSON from response")
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if not json_match:
+                logger.error("No JSON object found in response")
+                return False, "No valid JSON found in GPT response", None
+            
+            # Clean up the JSON string
+            json_str = json_match.group(0)
+            json_str = re.sub(r'[\n\r\t]', '', json_str)  # Remove newlines and tabs
+            json_str = re.sub(r',\s*}', '}', json_str)    # Remove trailing commas
+            
+            try:
+                extracted_fields = json.loads(json_str)
+                logger.debug("JSON extraction and parsing successful")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse extracted JSON: {str(e)}\nJSON string: {json_str}")
+                return False, f"Invalid JSON format: {str(e)}", None
+        
+        # Log extracted fields
+        logger.debug(f"Extracted fields: {extracted_fields}")
+        
+        # Validate required fields
+        missing_fields = [field for field in fields if field not in extracted_fields]
+        if missing_fields:
+            logger.warning(f"Missing fields in response: {missing_fields}")
+            extracted_fields.update({field: "NOT_FOUND" for field in missing_fields})
+            
+        # Validate field formats
+        invalid_fields = []
+        for field, value in extracted_fields.items():
+            if not value or value.strip() == "":
+                extracted_fields[field] = "NOT_FOUND"
+                invalid_fields.append(field)
+            elif isinstance(value, str):
+                extracted_fields[field] = value.strip().upper()
+                
+        if invalid_fields:
+            logger.warning(f"Fields with invalid values: {invalid_fields}")
+            
+        # Check if all fields are NOT_FOUND
+        all_not_found = all(value == "NOT_FOUND" for value in extracted_fields.values())
+        if all_not_found:
+            logger.error("All fields are NOT_FOUND")
+            return False, "Critical fields missing - manual review required", None
+            
+        return True, None, extracted_fields
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {str(e)}\nResponse text: {response_text}")
+        return False, f"Invalid JSON in GPT response: {str(e)}", None
+    except Exception as e:
+        logger.error(f"Validation error: {str(e)}\nResponse text: {response_text}")
+        return False, f"Error parsing GPT response: {str(e)}", None
+
+def encode_image_to_base64(image_path: str) -> str:
+    """Convert image to base64 string"""
+    with open(image_path, 'rb') as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
 def get_gpt_classification(text: str) -> Tuple[str, float]:
-    """
-    Use GPT to classify the document type.
-    Returns tuple of (document_type, confidence)
-    """
-    prompt = f"""
-    You are a document classification expert. Analyze this OCR-extracted text and classify the document.
-    The text may be noisy or contain errors. Look for key identifying features:
-
-    Drivers License indicators:
-    - Format: Portrait ID card with photo
-    - Fields: DL Number, DOB, EXP, Height, Eyes, Sex
-    - Headers: "DRIVER LICENSE" or "DRIVER'S LICENSE"
-    - State name prominently displayed
+    """Classify document type using GPT"""
+    text_lower = text.lower()
     
-    Passport indicators:
-    - Format: Booklet page with MRZ code
-    - Fields: Passport No, Nationality, DOB, Sex
-    - Headers: "PASSPORT" or "PASSEPORT"
-    - Machine Readable Zone starting with "P<"
+    # Define classification rules
+    rules = {
+        'drivers_license': ['driver license', 'driver\'s license', 'dl', 'operator license', 'drivers license'],
+        'passport': ['passport', 'united states of america', 'type p', 'passport no'],
+        'ead': ['employment authorization', 'ead', 'authorization document', 'card#']
+    }
     
-    EAD Card indicators:
-    - Format: Card with USCIS branding
-    - Fields: A-Number, Category, Valid From/To
-    - Headers: "EMPLOYMENT AUTHORIZATION" or "EAD"
-    - Category codes like "C08" or "C09"
-
-    Text to analyze:
-    {text}
+    # Check each document type
+    max_confidence = 0.0
+    best_doc_type = None
     
-    Respond ONLY in format: TYPE|CONFIDENCE
-    Where TYPE is one of: drivers_license, passport, ead_card
-    And CONFIDENCE is 0.0-1.0
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a document classification expert. You must ONLY respond with TYPE|CONFIDENCE where TYPE is exactly one of: drivers_license, passport, ead_card"},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0,
-            max_tokens=10  # Very short response needed
-        )
-        
-        result = response.choices[0].message.content.strip()
-        doc_type, confidence = result.split("|")
-        doc_type = doc_type.strip().lower()
-        
-        # Validate the document type
-        valid_types = ['drivers_license', 'passport', 'ead_card']
-        if doc_type not in valid_types:
-            doc_type = 'drivers_license'  # Default to most common type if uncertain
-            confidence = 0.5
+    for doc_type, keywords in rules.items():
+        matches = sum(1 for keyword in keywords if keyword in text_lower)
+        if matches > 0:
+            confidence = matches / len(keywords)
+            if confidence > max_confidence:
+                max_confidence = confidence
+                best_doc_type = doc_type
             
-        return doc_type, float(confidence)
+    return best_doc_type, max_confidence
+
+def validate_field_format(field_name: str, value: str) -> bool:
+    """Validate field format based on expected patterns"""
+    if value == "NOT_FOUND":
+        return True
         
-    except Exception as e:
-        raise Exception(f"GPT classification failed: {str(e)}")
-
-def get_gpt_extraction(text: str, document_type: str, fields: List[str]) -> Dict[str, str]:
-    """
-    Use GPT to extract specified fields from document text.
-    Returns dictionary of field names and values.
-    """
-    fields_str = "\n".join([f"- {field}" for field in fields])
+    patterns = {
+        'license_number': r'^[A-Z0-9]{8,}$',
+        'first_name': r'^[A-Z][A-Z\s\-\'\.]+$',
+        'middle_initial': r'^[A-Z]$',
+        'last_name': r'^[A-Z][A-Z\s\-\'\.]+$',
+        'date_of_birth': r'^\d{2}/\d{2}/\d{4}$',
+        'issue_date': r'^\d{2}/\d{2}/\d{4}$',
+        'expiration_date': r'^\d{2}/\d{2}/\d{4}$',
+        'address': r'^.+$',  # Any non-empty string
+        'sex': r'^[MF]$',
+        'height': r'^\d-\d{2}$',
+        'weight': r'^\d{2,3}\s?lb$',
+        'eyes': r'^[A-Z]{3}$',
+        'restrictions': r'^[A-Z0-9\s]+$',
+        'endorsements': r'^[A-Z0-9\s]+$',
+        'donor': r'^(YES|NO)$',
+        'document_type': r'^.+$',  # Any non-empty string
+        'revision_date': r'^REV\s+\d{2}/\d{2}/\d{4}$'
+    }
     
-    prompt = f"""
-    You are extracting fields from a {document_type}. The text is OCR-generated and contains potential errors.
-    Use context clues and correct common OCR misreads. Pay special attention to field patterns and locations.
+    if field_name not in patterns:
+        return True
+        
+    return bool(re.match(patterns[field_name], value))
 
-    Required fields to extract:
-    {fields_str}
-
-    CRITICAL FIELD PATTERNS AND LOCATIONS:
-
-    1. License Number:
-       - Format: LETTER{{1-5}}NUMBER{{5-8}}LETTER{{1-2}} (e.g., WDLJK00580GF)
-       - Usually near top or bottom of document
-       - Common errors: O→0, I→1, S→5
-       - ALWAYS verify the last 1-2 characters are letters
-
-    2. Full Name:
-       - ALL UPPERCASE, typically near top
-       - Format: FIRST [MIDDLE] LAST (include middle initial if present)
-       - Example: "JANE A SAMPLE"
-       - Look for text after "NAME:" or near photo area
-       - Common errors: O→0 (e.g., "JOHN" not "J0HN")
-
-    3. Dates (DOB and Expiration):
-       - U.S. Format: MM/DD/YYYY
-       - DOB near physical descriptors
-       - EXP/Expiration near top or bottom
-       - Example: "01/08/1978"
-       - Verify against document context
-
-    4. Sex:
-       - Single letter: F or M
-       - Located near physical descriptors (height, eyes)
-       - Verify against photo and name context
-       - Common error: Confusing F/P or M/N
-
-    5. Height:
-       - Format: X-YY or X'YY" (e.g., "5-04" or "5'4"")
-       - Near other physical descriptors
-       - Common error: Confusing - with '
-
-    6. Eyes:
-       - Three-letter codes: BLU, BRO, GRN, HAZ
-       - Near height and sex
-       - Must match standard codes exactly
-
-    7. Address:
-       - Street number + name + state abbrev.
-       - Multiple lines, typically center of document
-       - Verify state abbreviation is valid (e.g., WA, CA)
-
-    COMMON OCR ERRORS TO CORRECT:
-    - "0" (zero) misread as "O" (letter)
-    - "1" misread as "I" or "l"
-    - "5" misread as "S"
-    - "8" misread as "B"
-    - Extra spaces or missing spaces
-    - Merged characters (e.g., "rn" as "m")
-
-    Text from document:
-    {text}
-
-    EXTRACTION RULES:
-    1. Return "NOT_FOUND" if field is truly not present
-    2. Do not guess or make up values
-    3. Use surrounding context to verify each field
-    4. Clean up common OCR errors in values
-    5. Double-check critical fields (name, license, dates)
-
-    Respond in exact format:
-    field_name1: value1
-    field_name2: value2
-    """
-    
+def get_gpt_extraction(image_path: str, doc_type: str, fields: List[str]) -> Dict[str, str]:
+    """Extract fields from image using GPT-4 Vision"""
     try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": """You are a document field extraction expert specializing in U.S. ID documents.
-                You excel at finding patterns in noisy OCR text and correcting common OCR errors.
-                You understand document layout and field relationships.
-                You NEVER guess values - use NOT_FOUND if uncertain."""},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0,
-            max_tokens=500
+        # First check image quality
+        is_valid, error_msg = check_image_quality(image_path)
+        if not is_valid:
+            logger.error(f"Image quality check failed: {error_msg}")
+            return {field: "NOT_FOUND" for field in fields}
+
+        # Validate image file exists and is readable
+        if not os.path.exists(image_path):
+            logger.error(f"Image file not found: {image_path}")
+            return {field: "NOT_FOUND" for field in fields}
+
+        try:
+            # Try to open and validate the image
+            with Image.open(image_path) as img:
+                # Check if image is too large
+                if os.path.getsize(image_path) > 20 * 1024 * 1024:  # 20MB limit
+                    logger.error("Image file too large for GPT Vision API")
+                    return {field: "NOT_FOUND" for field in fields}
+                # Convert to RGB if necessary
+                if img.mode not in ('RGB', 'L'):
+                    img = img.convert('RGB')
+                # Save as JPEG if not already
+                if not image_path.lower().endswith('.jpg'):
+                    temp_path = image_path + '.jpg'
+                    img.save(temp_path, 'JPEG', quality=95)  # Increased JPEG quality
+                    image_path = temp_path
+        except Exception as img_error:
+            logger.error(f"Error processing image: {str(img_error)}")
+            return {field: "NOT_FOUND" for field in fields}
+
+        # Create a focused, direct prompt for GPT
+        fields_str = ', '.join(fields)
+        prompt = (
+            f"Extract the following fields from this document image and return them as a JSON object with exactly these keys: {fields_str}. "
+            'If a field is missing or unreadable, use "NOT_FOUND". Do not include any explanation or extra text.'
         )
+        # --- LOGGING ---
+        logger.info(f"Sending image to GPT-4 Vision: {image_path}")
+        logger.info(f"Prompt sent to GPT-4 Vision:\n{prompt}")
+        # --- END LOGGING ---
+
+        try:
+            # Convert image to base64
+            with open(image_path, "rb") as image_file:
+                image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+        except Exception as b64_error:
+            logger.error(f"Error converting image to base64: {str(b64_error)}")
+            return {field: "NOT_FOUND" for field in fields}
+
+        try:
+            # Make API call to GPT-4 Vision
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a document field extraction expert. Extract information precisely as it appears on the document."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}",
+                                    "detail": "high"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=1000,
+                temperature=0
+            )
+        except Exception as api_error:
+            logger.error(f"Error calling GPT Vision API: {str(api_error)}")
+            return {field: "NOT_FOUND" for field in fields}
+
+        # Get response text
+        response_text = response.choices[0].message.content
         
-        result = response.choices[0].message.content.strip()
+        # Log the raw response
+        logger.debug(f"Raw GPT response for {doc_type}: {response_text}")
         
-        # Parse response into dictionary
-        extracted = {}
-        for line in result.split("\n"):
-            line = line.strip()
-            if not line or ":" not in line:
-                continue
-                
-            field, value = [part.strip() for part in line.split(":", 1)]
-            field = field.lstrip("- ")
-            
-            # Clean up common OCR errors in values
-            if value != "NOT_FOUND":
-                # Handle common OCR substitutions
-                value = re.sub(r'(?<![A-Z])O(?![A-Z])', '0', value)  # O → 0 except in names
-                value = re.sub(r'(?<![A-Z])I(?![A-Z])', '1', value)  # I → 1 except in names
-                value = re.sub(r'(?<![A-Z])S(?=\d)', '5', value)     # S → 5 when before numbers
-                value = re.sub(r'(?<=\d)B(?=\d)', '8', value)        # B → 8 between numbers
-                value = re.sub(r'\s+', ' ', value)                    # Normalize whitespace
-                
-                # Special handling for dates
-                if any(f in field.lower() for f in ['date', 'dob', 'exp']):
-                    # Ensure date format is MM/DD/YYYY
-                    date_parts = re.findall(r'\d+', value)
-                    if len(date_parts) == 3:
-                        month, day, year = date_parts
-                        value = f"{int(month):02d}/{int(day):02d}/{year}"
-                
-                # Special handling for license numbers
-                if 'license' in field.lower() and value != "NOT_FOUND":
-                    # Ensure last characters are letters if pattern matches
-                    if re.match(r'^[A-Z]{1,5}\d{5,8}[A-Z]{0,2}$', value):
-                        value = re.sub(r'O(?=[A-Z]*$)', '0', value)  # Fix O→0 except in final letters
-                
-            value = value.strip()
-            extracted[field] = value
-                
-        # Ensure all requested fields are present
-        for field in fields:
-            clean_field = field.lstrip("- ")
-            if clean_field not in extracted:
-                extracted[clean_field] = "NOT_FOUND"
-                
-        return extracted
+        # Validate GPT response
+        is_valid, error_msg, extracted_fields = validate_gpt_response(response_text, doc_type, fields)
         
+        if not is_valid:
+            logger.error(f"GPT response validation failed: {error_msg}")
+            # Instead of returning all NOT_FOUND, try to use partial results
+            if extracted_fields:
+                return extracted_fields
+            return {field: "NOT_FOUND" for field in fields}
+        
+        return extracted_fields
+
     except Exception as e:
-        raise Exception(f"GPT extraction failed: {str(e)}") 
+        logger.error(f"Error in GPT-4 extraction: {e}")
+        return {field: "NOT_FOUND" for field in fields} 

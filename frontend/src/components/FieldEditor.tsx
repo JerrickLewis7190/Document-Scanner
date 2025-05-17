@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -7,7 +7,7 @@ import {
   CircularProgress,
   Grid
 } from '@mui/material';
-import { Field } from '../services/api';
+import { Field } from '../types';
 import { logger } from '../utils/logger';
 
 interface FieldEditorProps {
@@ -17,11 +17,17 @@ interface FieldEditorProps {
 }
 
 const FieldEditor: React.FC<FieldEditorProps> = ({
-  fields,
+  fields = [],
   onSave,
   loading = false
 }) => {
-  const [editedFields, setEditedFields] = useState<Field[]>(fields);
+  const [editedFields, setEditedFields] = useState<Field[]>([]);
+
+  useEffect(() => {
+    if (fields && fields.length > 0) {
+      setEditedFields(fields);
+    }
+  }, [fields]);
 
   const handleFieldChange = (fieldName: string, value: string) => {
     logger.debug(`Editing field: ${fieldName} with value: ${value}`);
@@ -47,6 +53,16 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
     );
   }
 
+  if (!fields || fields.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <Typography color="textSecondary">
+          No fields available for editing
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Grid container spacing={2}>
@@ -59,7 +75,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                 htmlFor={field.field_name}
                 sx={{ minWidth: '120px', fontWeight: 'medium' }}
               >
-                {field.field_name.split('_').map(word => 
+                {field.field_name.split('_').map((word: string) =>
                   word.charAt(0).toUpperCase() + word.slice(1)
                 ).join(' ')}
               </Typography>
@@ -68,16 +84,17 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                 fullWidth
                 variant="outlined"
                 size="small"
-                value={field.field_value}
+                value={field.field_value || ''}
                 onChange={(e) => handleFieldChange(field.field_name, e.target.value)}
                 InputProps={{
-                  endAdornment: (
-                    <Button
-                      size="small"
-                      onClick={() => handleFieldChange(field.field_name, field.field_value)}
+                  endAdornment: field.corrected && (
+                    <Typography
+                      variant="caption"
+                      color="primary"
+                      sx={{ ml: 1 }}
                     >
-                      Edit
-                    </Button>
+                      Edited
+                    </Typography>
                   ),
                 }}
               />
@@ -91,7 +108,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
           variant="contained"
           color="primary"
           onClick={handleSave}
-          disabled={loading}
+          disabled={loading || editedFields.length === 0}
         >
           Save Changes
         </Button>
