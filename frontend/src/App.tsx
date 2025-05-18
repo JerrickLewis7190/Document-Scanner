@@ -8,6 +8,9 @@ import { Document, Field } from './types';
 import api from './services/api';
 import { logger } from './utils/logger';
 
+// Local storage keys
+const STORAGE_KEY_SELECTED_DOC = 'documentScanner_selectedDocument';
+
 function App() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -16,10 +19,41 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showUploadForm, setShowUploadForm] = useState(false);
 
+  // Load documents and restore selected document from localStorage
   useEffect(() => {
     logger.info('App component mounted, loading initial documents');
-    loadDocuments();
+    loadDocuments().then(() => {
+      // Try to restore selected document from localStorage
+      const savedDocId = localStorage.getItem(STORAGE_KEY_SELECTED_DOC);
+      if (savedDocId) {
+        try {
+          const docId = parseInt(savedDocId);
+          logger.info(`Attempting to restore document ID: ${docId} from localStorage`);
+          api.getDocument(docId)
+            .then(doc => {
+              logger.info(`Successfully restored document ID: ${docId}`);
+              setSelectedDocument(doc);
+            })
+            .catch(err => {
+              logger.warn(`Failed to restore document ID: ${docId}, it may have been deleted`);
+              localStorage.removeItem(STORAGE_KEY_SELECTED_DOC);
+            });
+        } catch (err) {
+          logger.error('Error parsing saved document ID', err);
+          localStorage.removeItem(STORAGE_KEY_SELECTED_DOC);
+        }
+      }
+    });
   }, []);
+
+  // Save selected document ID to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedDocument) {
+      localStorage.setItem(STORAGE_KEY_SELECTED_DOC, selectedDocument.id.toString());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_SELECTED_DOC);
+    }
+  }, [selectedDocument]);
 
   const loadDocuments = async () => {
     try {
@@ -27,10 +61,12 @@ function App() {
       const docs = await api.getDocuments();
       logger.info(`Successfully loaded ${docs.length} documents`);
       setDocuments(docs);
+      return docs;
     } catch (err) {
       const errorMessage = 'Failed to load documents';
       logger.error(errorMessage, err);
       setError(errorMessage);
+      return [];
     }
   };
 
@@ -94,7 +130,37 @@ function App() {
   };
 
   const handleDocumentSelect = (document: Document) => {
-    logger.info(`Selected document ID: ${document.id}`);
+    logger.info(`Selected document ID: ${document.id}, image URL: ${document.image_url}`);
+    
+    // Pre-fetch image to check if it exists
+    if (document.image_url) {
+      const fullUrl = document.image_url.startsWith('http') 
+        ? document.image_url
+        : document.image_url.startsWith('/')
+          ? `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}${document.image_url}`
+          : `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/${document.image_url}`;
+      
+      logger.info(`Pre-fetching document image from: ${fullUrl}`);
+      
+      // For PDFs, check if the file exists with a HEAD request
+      if (document.image_url.toLowerCase().endsWith('.pdf')) {
+        fetch(fullUrl, { method: 'HEAD' })
+          .then(response => {
+            if (!response.ok) {
+              logger.error(`Document image not available: ${response.status} ${response.statusText}`);
+              setError(`The document image is not available (${response.status})`);
+            } else {
+              logger.info('Document image is available');
+              setError(null);
+            }
+          })
+          .catch(err => {
+            logger.error(`Error checking document image: ${err.message}`);
+            setError(`Error accessing document: ${err.message}`);
+          });
+      }
+    }
+    
     setSelectedDocument(document);
     setShowUploadForm(false);
   };

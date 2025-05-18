@@ -5,6 +5,9 @@ import os
 import logging
 import sys
 from datetime import datetime
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.database import engine
 from app.models.db_models import Base
@@ -30,11 +33,28 @@ logger.info("Initializing database tables...")
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created successfully")
 
+# Define custom middleware to add headers for static files
+class AddHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        
+        # Add cache control headers for upload files
+        if request.url.path.startswith("/uploads/"):
+            logger.debug(f"Adding no-cache headers for: {request.url.path}")
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        
+        return response
+
 app = FastAPI(
     title="Document Scanner API",
     description="API for scanning and extracting information from immigration documents",
     version="1.0.0"
 )
+
+# Add custom headers middleware
+app.add_middleware(AddHeadersMiddleware)
 
 # Configure CORS
 logger.info("Configuring CORS middleware...")
