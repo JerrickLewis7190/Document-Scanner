@@ -92,7 +92,7 @@ REACT_APP_API_URL=http://localhost:8000
    python -m venv venv
    
    # On Windows
-   venv\Scripts\activate
+   .venv\Scripts\activate
    
    # On macOS/Linux
    source venv/bin/activate
